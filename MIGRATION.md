@@ -22,3 +22,7 @@ The following private paths are exported from the immutable checkpoint with Git 
 This repository must not contain private Git history, CWS release packages or materials, screenshots, offline backups, QA runtime evidence, Worker account configuration, D1 identifiers, OAuth credentials, token-vault keys, extension signing/public keys, subscription/Bridge data, or Official service domains.
 
 The imported source is transformed before any public use so it cannot default to Official infrastructure. Publication remains blocked until the public-source verification script, a clean-environment deployment rehearsal, a license decision, and Jason's explicit approval are complete.
+
+## Current migration gate
+
+The isolated source import and offline behavior suites are complete. The first Community source commit is deliberately blocked until the separate remediation phase removes remaining Official UI and support references from the imported v0.7 extension and Worker. This repository has no remote configured and no public action has been performed.
