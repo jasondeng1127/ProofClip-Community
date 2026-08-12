@@ -76,6 +76,32 @@ test('project introduction leads with research and states the Community boundary
   assert.match(readme, /docs\/project-introduction\.md/i);
 });
 
+test('README gives repository visitors a research-first Community product overview', async () => {
+  const root = new URL('../../../', import.meta.url);
+  const readme = await readFile(new URL('README.md', root), 'utf8');
+  for (const phrase of [
+    'research workbench',
+    'Alt+1',
+    'Alt+2',
+    'Alt+3',
+    'open the saved Archive record',
+    'personal note',
+    'docs/assets/capture-panel.png',
+    'docs/assets/connected-settings.png',
+    'docs/assets/field-mapping.png',
+    'Community edition',
+    'Commercial edition',
+    'more complete feature set',
+    'more polished experience',
+    'continuing version updates',
+    'self-deploy and operate it themselves',
+    'no background or automatic sync'
+  ]) {
+    assert.match(readme, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }
+  assert.doesNotMatch(readme, /pricing|SLA|support guarantee|official hosting/i);
+});
+
 test('project introduction uses verified Community side-panel crops and describes notes after Archive review', async () => {
   const root = new URL('../../../', import.meta.url);
   // These are the exact, visible Community UI strings in the supplied source screenshots.
