@@ -1,0 +1,15 @@
+{
+  "name": "<YOUR_WORKER_NAME>",
+  "main": "dist/worker.mjs",
+  "compatibility_date": "2026-07-28",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "<YOUR_D1_DATABASE_NAME>",
+      "database_id": "<YOUR_D1_DATABASE_ID>"
+    }
+  ],
+  "vars": {
+    "PROOFCLIP_EXTENSION_ID": "<YOUR_EXTENSION_ID>"
+  }
+}

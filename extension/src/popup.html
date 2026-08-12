@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ProofClip</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="side-rail" aria-label="ProofClip navigation">
+        <img class="brand-mark" src="assets/proofclip-icon.svg" alt="ProofClip">
+        <button class="nav-item active" data-page="capture">Capture</button>
+        <button class="nav-item" data-page="archive">Archive</button>
+        <button class="nav-item" data-page="settings">Settings</button>
+        <button class="nav-item" data-page="guide">Guide</button>
+        <a class="privacy-link" target="_blank" rel="noreferrer noopener">Privacy</a>
+      </nav>
+      <main>
+        <header class="app-header"><div><h1>ProofClip</h1><p>Evidence capture for Notion</p></div><span class="ready">● Ready</span></header>
+        <p id="status" class="status">Loading…</p>
+        <p id="deliveryLink" class="delivery-link" hidden><a target="_blank" rel="noreferrer noopener">Open saved page in Notion</a></p>
+
+        <section class="page active" data-page="capture">
+          <section class="capture-hero">
+            <h2>Capture</h2><p class="page-intro">Capture without leaving the page.</p>
+            <label class="capture-route-label">Delivery
+              <select id="captureRoute"><option value="archive">Save locally</option><option value="direct">Send to Notion</option></select>
+            </label>
+            <div class="capture-actions">
+              <button data-capture="selection" class="capture-action" data-mode="selection"><img src="assets/capture-selection.svg" alt=""><strong>Selection</strong><kbd>Alt + 1</kbd></button>
+              <button id="captureRegion" class="capture-action" data-mode="region"><img src="assets/capture-region.svg" alt=""><strong>Image area</strong><kbd>Alt + 2</kbd></button>
+              <button data-capture="body" class="capture-action" data-mode="body"><img src="assets/capture-page.svg" alt=""><strong>Full page</strong><kbd>Alt + 3</kbd></button>
+            </div>
+          </section>
+          <div id="duplicateConfirm" class="duplicate-confirm" hidden>
+            <p id="duplicateConfirmText" class="hint"></p>
+            <p id="duplicateConfirmCountdown" class="duplicate-countdown"></p>
+            <div class="actions">
+              <button id="duplicateConfirmContinue">Continue</button>
+              <button id="duplicateConfirmCancel" class="secondary">Cancel</button>
+            </div>
+          </div>
+          <p class="action-feedback" data-action-feedback="capture" aria-live="polite" hidden></p>
+          <section id="recentCapture" class="recent-capture"><div class="recent-header"><h3>Recent capture</h3><span id="archiveCount">0 records</span><button id="openArchive" class="secondary">View archive</button></div><div id="recentPreview" class="recent-preview" data-mode="body"><img id="recentThumbnail" alt="Latest captured page" hidden><div class="recent-placeholder" aria-hidden="true"></div><div class="recent-copy"><strong id="recentTitle">No captures yet</strong><span id="recentMeta">Your next capture will appear here.</span><span id="recentSaveStatus">Saved locally</span></div></div></section>
+          <section class="outbox-card"><div class="outbox-title"><h3>Outbox</h3><span id="outboxCount">0</span></div><div id="outbox"></div></section>
+        </section>
+
+        <section class="page" data-page="archive" hidden>
+          <h2>Archive</h2><p class="page-intro">Find evidence without reopening the source.</p>
+          <section class="card compact-card"><div class="row"><h3>Local archive</h3><span>Stored in this browser</span></div><p class="hint">Search, filter, read full evidence, and send individual records to Notion from the archive.</p><div class="actions"><button id="openArchiveFromPage">Open archive</button><button id="exportArchive" class="secondary">Export JSON</button><button id="clearAll" class="danger">Clear local archive and settings</button></div><p class="hint">Export includes locally saved screenshots. It is a read-only archive copy and cannot restore settings, projects, mapping, or Outbox.</p><p class="action-feedback" data-action-feedback="archive" aria-live="polite" hidden></p></section>
+        </section>
+
+        <section class="page" data-page="settings" hidden>
+          <section class="settings-hero"><h2>Settings</h2><p class="page-intro">Configure Notion once. Capture stays out of the way.</p></section>
+          <section class="settings-connection">
+            <div><h3>Notion connection</h3><p id="connectionStatus" class="hint">Checking connection…</p></div>
+            <button id="connectNotion">Connect</button><button id="disconnectNotion" class="danger" hidden>Disconnect</button>
+          </section>
+          <p class="settings-privacy hint">ProofClip stores no Notion token in this extension. Connecting opens Notion’s approval page.</p>
+          <section class="settings-target">
+            <h3>Delivery target</h3>
+            <label>Data source<select id="dataSourceId"><option value="">Connect Notion first</option></select></label>
+            <label>Evidence template<select id="templateId"></select></label>
+            <details class="mapping-details"><summary>Field mapping</summary><p class="mapping-intro">Map captured data to fields in your template. Options come from the properties already in your Notion Data Source — create matching properties in Notion first if none appear.</p><div id="templateMappings" class="template-mappings"></div><p id="templateValidation" class="hint" aria-live="polite"></p></details>
+            <button id="saveSettings" disabled>Save target mapping</button><p class="action-feedback" data-action-feedback="notion" aria-live="polite" hidden></p>
+          </section>
+          <details class="settings-template"><summary><span><strong>Template editor</strong><small>Create and manage browser-only templates.</small></span></summary><div class="settings-template-body"><label>Template name<input id="templateName" type="text" maxlength="60" placeholder="e.g. Supplier quote"></label><div id="templateFields" class="template-fields"></div><div class="actions"><button id="newTemplate" class="secondary">New template</button><button id="editTemplate" class="secondary">Edit selected</button><button id="addTemplateField" class="secondary">Add field</button><button id="saveTemplate" class="secondary">Save template</button><button id="deleteTemplate" class="danger">Delete template</button><button id="setDefaultTemplate" class="secondary">Set as default</button></div><p class="hint">Custom templates are stored in this browser only. Deleting a template never changes archived evidence cards.</p><p class="action-feedback" data-action-feedback="template" aria-live="polite" hidden></p></div></details>
+        </section>
+
+        <section class="page" data-page="guide" hidden>
+          <section class="feature-guide-hero"><h2>Feature guide</h2><p class="page-intro">Explore what ProofClip can do.</p></section>
+          <section class="feature-guide-card">
+            <h3 class="feature-guide-group-title">Capture</h3>
+            <details class="feature-guide-item"><summary>Three capture modes and shortcuts</summary><p>Capture the full page body, a text selection, or a visible region with one click. Shortcuts: Alt+3 = Body, Alt+2 = Region, Alt+1 = Selection.</p></details>
+            <details class="feature-guide-item"><summary>Read mode and long pages</summary><p>Page bodies are cleaned automatically (ads, navigation, comments and cookie banners removed), and long pages up to 200,000 characters are saved in full.</p></details>
+            <details class="feature-guide-item"><summary>Region screenshots</summary><p>Region captures are watermarked with the capture time and source URL. Right-click cancels a selection, just like Esc.</p></details>
+            <details class="feature-guide-item"><summary>Capture route</summary><p>Choose Save locally (the default) or Send to Notion direct mode. An empty selection is refused, and Recent capture previews your latest capture.</p></details>
+            <details class="feature-guide-item"><summary>Right-click selection</summary><p>Select text on a page, open the page context menu, then choose the ProofClip selection command. It uses your current capture route.</p></details>
+            <details class="feature-guide-item"><summary>Duplicate capture warning</summary><p>When you capture a recently saved page again, ProofClip asks whether to Continue or Cancel before creating another record. If you do not choose, capture continues after a short countdown.</p></details>
+            <h3 class="feature-guide-group-title">Archive</h3>
+            <details class="feature-guide-item"><summary>Local archive and search</summary><p>Every capture is saved in your browser (IndexedDB) and can be searched by title, source, body, note or tag.</p></details>
+            <details class="feature-guide-item"><summary>Filters</summary><p>Filter the archive by project, tag, capture mode and delivery status.</p></details>
+            <details class="feature-guide-item"><summary>Projects</summary><p>Create, rename and delete projects; deleting a project moves its cards to Unfiled after confirmation.</p></details>
+            <details class="feature-guide-item"><summary>Card management</summary><p>Edit a card's project, tags and notes in place, and read the full body text with its own scroll area.</p></details>
+            <details class="feature-guide-item"><summary>Send to Notion</summary><p>Send one card at a time through your chosen template, or use direct capture. A region direct-send delivers only the screenshot with Source, Captured and Mode. After a local save, the page toast offers Edit (opens that card in Archive) and Send to Notion.</p></details>
+            <details class="feature-guide-item"><summary>Send filtered records</summary><p>Use Send filtered to Notion to send the pending cards that match your current Archive filters. Sent and failed cards are left unchanged.</p></details>
+            <details class="feature-guide-item"><summary>Outbox recovery</summary><p>A failed delivery stays in Outbox. Use Retry for a retryable delivery; use Resend after verification after you reconnect Notion or correct its target and mapping.</p></details>
+            <details class="feature-guide-item"><summary>Direct delivery</summary><p>A successful Send to Notion direct capture goes to your chosen Notion Data Source and is not added to the local Archive. If it fails, its record stays in Outbox for recovery.</p></details>
+            <details class="feature-guide-item"><summary>Remove a local copy</summary><p>Remove one local card and its paired Outbox item without touching the Notion page already sent.</p></details>
+            <details class="feature-guide-item"><summary>Export and clear</summary><p>Export JSON is a read-only archive that includes screenshots. Clear local data removes archive, settings and Outbox while keeping this month's work counter.</p></details>
+            <h3 class="feature-guide-group-title">Settings</h3>
+            <details class="feature-guide-item"><summary>Notion connection</summary><p>Connect through Notion's own approval page; no token is stored in this extension. Disconnect removes the server-side connection.</p></details>
+            <details class="feature-guide-item"><summary>Delivery target</summary><p>Choose a Notion Data Source and an evidence template (four built-ins included), map captured fields with type-safe constraints — Title and URL are required; date, select, multi-select, rich text, status and files are supported — then save the mapping. Mapping options come from the properties that already exist in your Notion Data Source, so create or rename matching properties in Notion first.</p></details>
+            <details class="feature-guide-item"><summary>Template editor</summary><p>Create, edit, delete and set a default browser-only template. New templates start with the standard field set; Title and URL cannot be removed, and deleting a template never changes archived evidence cards.</p></details>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+# Local development only. Do not commit a populated .dev.vars file.
+NOTION_CLIENT_ID=<YOUR_NOTION_CLIENT_ID>
+NOTION_CLIENT_SECRET=<YOUR_NOTION_CLIENT_SECRET>
+NOTION_REDIRECT_URI=https://<YOUR_WORKER_SUBDOMAIN>.workers.dev/v1/auth/notion/callback
+TOKEN_VAULT_KEY=<BASE64_32_BYTE_KEY>

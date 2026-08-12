@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">ProofClip</title>
+  <rect width="128" height="128" rx="28" fill="#1d4ed8"/>
+  <path d="M42 31h44a8 8 0 0 1 8 8v57a8 8 0 0 1-8 8H42a8 8 0 0 1-8-8V39a8 8 0 0 1 8-8Z" fill="#eff6ff"/>
+  <path d="M51 26h26a7 7 0 0 1 7 7v8H44v-8a7 7 0 0 1 7-7Z" fill="#bfdbfe"/>
+  <path d="M50 57h28M50 70h28M50 83h18" stroke="#1d4ed8" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="91" cy="90" r="20" fill="#16a34a"/>
+  <path d="m82 90 6 6 12-14" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

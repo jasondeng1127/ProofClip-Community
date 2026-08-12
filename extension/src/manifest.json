@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "ProofClip — Evidence capture for Notion",
+  "version": "0.7.0",
+  "minimum_chrome_version": "141",
+  "description": "Capture the current page as local evidence and explicitly send it through your authorized Notion connection.",
+  "action": {
+    "default_title": "ProofClip",
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "32": "assets/icon-32.png",
+      "48": "assets/icon-48.png",
+      "128": "assets/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "scripting",
+    "storage",
+    "downloads",
+    "sidePanel"
+  ],
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "proofclip-capture-body": {
+      "suggested_key": {
+        "default": "Alt+3"
+      },
+      "description": "Capture page body"
+    },
+    "proofclip-capture-selection": {
+      "suggested_key": {
+        "default": "Alt+1"
+      },
+      "description": "Capture selection"
+    },
+    "proofclip-capture-region": {
+      "suggested_key": {
+        "default": "Alt+2"
+      },
+      "description": "Capture region"
+    }
+  }
+}
