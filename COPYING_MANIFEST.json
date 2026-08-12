@@ -59,19 +59,19 @@
     },
     {
       "path": "docs/assets/capture-panel.png",
-      "sha256": "124a29b177ad6fe5b1560c4178cf78aa5c93f2fec6d0219113a2ac22e13f870b"
+      "sha256": "d56596eb314bdfc3404644ddb883a47894f928524bb74460ae66165db303ddae"
     },
     {
       "path": "docs/assets/connected-settings.png",
-      "sha256": "4db811ee20bda1690d11bec990cc3a22d450e342016a31bd309e3ed7dcb2b978"
+      "sha256": "68e6c5c02b8d0c026a1ae170fb882eae252ebb925809689afd7f713c36d1a216"
     },
     {
       "path": "docs/assets/field-mapping.png",
-      "sha256": "e3b4b6b03fa3419b5828d8ca5bff3cfd75584887c48b244ca3f810e7a1eca5bb"
+      "sha256": "29a188be285a4b59b3a617e65e6992f8db5c78b320d1de629082e1c932188c97"
     },
     {
       "path": "docs/project-introduction.md",
-      "sha256": "cb653ed43137f27bbc8a9306c97dc40c3866d00d42e6c406bc4bfdeccf4a6e69"
+      "sha256": "d3425c5a60e8f22176b4d81fe0565e1b83f8bd439374e5fc9786cfef0ff7d329"
     },
     {
       "path": "docs/security.md",
@@ -83,7 +83,7 @@
     },
     {
       "path": "docs/superpowers/plans/2026-08-12-community-project-introduction.md",
-      "sha256": "991e86178ca2e92a51a60ce50f0ab5d5ba7d7acad12f8da6468392f372b2a13d"
+      "sha256": "b8e28d098bf32ed2ade205e9b8bc6804b10b2884da9c469ed04f6b570206232c"
     },
     {
       "path": "docs/superpowers/plans/2026-08-12-community-publication.md",
@@ -91,7 +91,7 @@
     },
     {
       "path": "docs/superpowers/specs/2026-08-12-community-project-introduction-design.md",
-      "sha256": "c21a3421f7ddc897d5d134a4757491a511aa66e267d6ee9346db08d7b0752aa5"
+      "sha256": "9e96148bb695aabf276a8ea21b0bab71e1c0738afeb76e08343e38b9bf32b274"
     },
     {
       "path": "docs/superpowers/specs/2026-08-12-community-publication-design.md",
@@ -427,7 +427,7 @@
     },
     {
       "path": "extension/src/tests/release-copy.test.mjs",
-      "sha256": "e9b3f2a777b74704a5c3146070e873d8c778db168c3338144ce80c2c84947ea1"
+      "sha256": "68573d3964a70599454c10bb7593185fc941803b5eead0e49121872646d4d101"
     },
     {
       "path": "extension/src/tests/release-hardening.test.mjs",
