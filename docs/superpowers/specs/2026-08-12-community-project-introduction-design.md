@@ -21,9 +21,9 @@ boundary without reading source code.
 Create `docs/project-introduction.md` with five short sections:
 
 1. A plain-language summary led by literature and document research: capture
-   the original passage with its source while reading, add the researcher's own
-   note without breaking concentration, and return to a searchable evidence
-   archive or explicitly deliver the finished record to Notion.
+   the original passage with its source while reading, then open the saved
+   Archive record to add the researcher's own note, and return to a searchable
+   evidence archive or explicitly deliver the finished record to Notion.
 2. Three concrete use cases, each expressed as situation, action, and
    outcome. Place long-form literary, academic, and document research first:
    retain selected passages and claims with a source and personal note; then
@@ -47,17 +47,23 @@ page rather than duplicating the whole introduction.
 
 ## Visual proof
 
-Place three supplied extension screenshots beside the relevant sections:
-Capture, connected delivery setup, and field mapping. Use captions that tell a
-visitor what the interaction demonstrates. The images must contain no Worker
-origin, extension ID, OAuth secret, token, or resource identifier; no runtime
-configuration screenshots are permitted.
+Place three supplied, real Community extension screenshots beside the relevant
+sections: Capture, explicit delivery success, and field mapping. Use captions
+that tell a visitor what the interaction demonstrates. Crop only the ProofClip
+side panel. The images must contain no Worker origin, extension ID, OAuth
+secret, token, resource identifier, browser/Notion host content, source URL,
+captured evidence body, or account/workspace identity. A field-mapping crop is
+allowed if it contains only generic property labels and no configured target.
 
 ## Constraints
 
 - English-only public product copy.
-- Describe only current Community behavior; never restore commercial,
-  quota, official-hosting, or deployment-specific claims.
+- Describe only current Community behavior, except for this Jason-approved
+  product positioning: Commercial is for users who want a more complete
+  feature set, a more polished experience, and continuing version updates;
+  Community is suitable for users who self-deploy and operate it themselves.
+  Do not state commercial pricing, named features, SLAs, support guarantees,
+  or other unverified commercial claims.
 - Do not add live Worker origins, extension IDs, OAuth IDs, tokens,
   screenshots, or captured content.
 - Keep deployment procedures in `deploy/README.md`.

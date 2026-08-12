@@ -15,8 +15,17 @@
   and personal note while reading, then retrieve it later without losing the
   original evidence context.
 - Include broad page research and visual evidence as additional use cases.
-- State only current Community behavior: no commercial, quota, official-hosting, or automatic-delivery claims.
-- Screenshots must not expose Worker origins, extension IDs, OAuth IDs, secrets, tokens, resource IDs, or captured content.
+- State only current Community behavior, except for this Jason-approved
+  positioning: Commercial is for users who want a more complete feature set,
+  a more polished experience, and continuing version updates; Community suits
+  users who self-deploy and operate it themselves. Do not state commercial
+  pricing, named features, SLAs, support guarantees, or other unverified
+  commercial claims.
+- Screenshots must be real supplied Community side-panel crops, not generated
+  illustrations. They must not expose Worker origins, extension IDs, OAuth
+  IDs, secrets, tokens, resource IDs, browser/Notion host content, source URL,
+  captured content, or account/workspace identity. A field-mapping crop may
+  show only generic property labels and no configured target.
 - Include `Alt+1` selection, `Alt+2` image area, and `Alt+3` full page.
 - Use only the three provided screenshots as documentation assets.
 
@@ -54,11 +63,13 @@ exist yet.
 
 - [ ] **Step 3: Add the sanitized supplied images and write the guide**
 
-Copy the capture, connected-settings, and field-mapping screenshots into the
-three named `docs/assets/` paths. Write the approved copy structure: a
-plain-language research-workbench introduction; an opening literary/document
-research workflow that preserves a passage, its source, and a personal note
-without interrupting reading; full-page research and visual evidence use
+Crop the supplied real Community side-panel screenshots into the capture,
+explicit-delivery, and generic field-mapping PNGs at the three named
+`docs/assets/` paths; do not generate illustration assets. Write the approved
+copy structure: a plain-language research-workbench introduction; an opening
+literary/document research workflow that captures a passage and its source
+while reading, then lets the reader open the saved Archive record to add a
+personal note; full-page research and visual evidence use
 cases; a capture-mode table with the three shortcuts; the local Archive and
 explicit delivery model; a short self-hosting boundary; and deployment links.
 Embed each image with a caption that explains the demonstrated interaction.
