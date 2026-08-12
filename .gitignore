@@ -12,6 +12,7 @@ wrangler.jsonc
 dist/
 coverage/
 runtime-evidence/
+.worktrees/
 *.zip
 *.sha256
 
