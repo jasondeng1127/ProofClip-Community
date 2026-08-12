@@ -60,7 +60,10 @@ test('project introduction leads with research and states the Community boundary
     'search',
     'editable templates',
     'Outbox recovery',
-    'does not deliver automatically'
+    'does not deliver automatically',
+    'defaults to the local Archive',
+    'no background or automatic sync',
+    'explicitly select direct delivery during capture'
   ]) {
     assert.match(introduction, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   }
@@ -68,5 +71,6 @@ test('project introduction leads with research and states the Community boundary
     const escaped = configurationClaim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     assert.doesNotMatch(introduction, new RegExp(`\\b${escaped}\\b`, 'i'));
   }
+  assert.doesNotMatch(introduction, /capture, local saving, and delivery remain separate actions/i);
   assert.match(readme, /docs\/project-introduction\.md/i);
 });

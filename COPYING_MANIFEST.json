@@ -71,7 +71,7 @@
     },
     {
       "path": "docs/project-introduction.md",
-      "sha256": "dfbe185b6bf3ccfef12790607388127153fd32b5ff333feba619e2471f71b296"
+      "sha256": "cb653ed43137f27bbc8a9306c97dc40c3866d00d42e6c406bc4bfdeccf4a6e69"
     },
     {
       "path": "docs/security.md",
@@ -427,7 +427,7 @@
     },
     {
       "path": "extension/src/tests/release-copy.test.mjs",
-      "sha256": "2e23a6a86849ac14eaa434b9afef797f98246cfbe60c54f6cdd3b05010d095e6"
+      "sha256": "e9b3f2a777b74704a5c3146070e873d8c778db168c3338144ce80c2c84947ea1"
     },
     {
       "path": "extension/src/tests/release-hardening.test.mjs",

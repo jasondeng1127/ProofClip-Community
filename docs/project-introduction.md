@@ -1,6 +1,6 @@
 # ProofClip Community: a research workbench that stays in your flow
 
-ProofClip Community is a self-hosted research workbench for keeping web evidence close to the reading that produced it. It helps a researcher preserve a useful passage or page, its source, and a **personal note** without interrupting reading. Capture remains local until you explicitly choose a delivery action.
+ProofClip Community is a self-hosted research workbench for keeping web evidence close to the reading that produced it. It helps a researcher preserve a useful passage or page, its source, and a **personal note** without interrupting reading. A capture defaults to the local Archive, with no background or automatic sync.
 
 ## Literature and document research
 
@@ -26,7 +26,7 @@ Full-page research makes it practical to preserve the context for a changing web
 
 ## Keep research organized locally
 
-Organize local records with projects and tags, use search to find them later, and keep editable templates for repeatable note structure. The Outbox recovery flow keeps a failed explicit delivery available to review and retry. The Community edition does not deliver automatically: capture, local saving, and delivery remain separate actions.
+Organize local records with projects and tags, use search to find them later, and keep editable templates for repeatable note structure. The Outbox recovery flow keeps a failed explicit delivery available to review and retry. The Community edition does not deliver automatically. During capture, a user may explicitly select direct delivery; this route does not require the capture to enter the local Archive first.
 
 ![ProofClip local organization illustration](assets/field-mapping.png)
 
@@ -36,7 +36,7 @@ The public asset files are `docs/assets/capture-panel.png`, `docs/assets/connect
 
 ## Local-first, explicit delivery
 
-ProofClip keeps captures in the browser first. A delivery is an explicit user action; it is not implied merely by capturing or saving a record. When a deployer configures a Worker, D1, and Notion OAuth for their own environment, that deployer's Worker can deliver the requested record to the user-authorized workspace. See the [architecture](architecture.md) and [self-hosted Notion OAuth guide](self-hosted-notion-oauth.md) for the operational boundary.
+ProofClip keeps captures in the browser first. A delivery is an explicit user action: the default path saves locally, while a user may explicitly select direct delivery during capture. It is never a background or automatic sync, and direct delivery does not imply that the capture was first added to the local Archive. When a deployer configures a Worker, D1, and Notion OAuth for their own environment, that deployer's Worker can deliver the requested record to the user-authorized workspace. See the [architecture](architecture.md) and [self-hosted Notion OAuth guide](self-hosted-notion-oauth.md) for the operational boundary.
 
 ## Self-hosting boundary
 
