@@ -67,11 +67,11 @@
     },
     {
       "path": "docs/assets/field-mapping.png",
-      "sha256": "9c166d387c086840ca10d5afabf88c65676466f1339857416514b357dde4f9f6"
+      "sha256": "e3b4b6b03fa3419b5828d8ca5bff3cfd75584887c48b244ca3f810e7a1eca5bb"
     },
     {
       "path": "docs/project-introduction.md",
-      "sha256": "e74c0b31453f81670a577b7a41e01440964a044f7ccc4d43d11dd8e66d0523fa"
+      "sha256": "dfbe185b6bf3ccfef12790607388127153fd32b5ff333feba619e2471f71b296"
     },
     {
       "path": "docs/security.md",
@@ -427,7 +427,7 @@
     },
     {
       "path": "extension/src/tests/release-copy.test.mjs",
-      "sha256": "0c0aa41435cc68cec32cf7b7516ca85c839e411536ab58983acc9e4f289482ae"
+      "sha256": "2e23a6a86849ac14eaa434b9afef797f98246cfbe60c54f6cdd3b05010d095e6"
     },
     {
       "path": "extension/src/tests/release-hardening.test.mjs",

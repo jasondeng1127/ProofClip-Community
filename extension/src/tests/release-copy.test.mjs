@@ -52,9 +52,21 @@ test('project introduction leads with research and states the Community boundary
     'more complete feature set',
     'more polished experience',
     'continuing version updates',
-    'self-deploy and operate it themselves'
+    'self-deploy and operate it themselves',
+    'source URL',
+    'capture time',
+    'projects',
+    'tags',
+    'search',
+    'editable templates',
+    'Outbox recovery',
+    'does not deliver automatically'
   ]) {
     assert.match(introduction, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }
+  for (const configurationClaim of ['Connect', 'Connection status', 'Save target mapping', 'Data source', 'Evidence template', 'Field mapping']) {
+    const escaped = configurationClaim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert.doesNotMatch(introduction, new RegExp(`\\b${escaped}\\b`, 'i'));
   }
   assert.match(readme, /docs\/project-introduction\.md/i);
 });

@@ -18,19 +18,19 @@ While reading a paper, report, policy, or long-form document, capture the passag
 
 ## Other research use cases
 
-Full-page research makes it practical to preserve the context for a changing web page, while image-area capture helps retain visual evidence that text alone cannot represent. A capture can be held in the **local Archive** for review, notes, and later organization before any delivery is requested.
+Full-page research makes it practical to preserve the context for a changing web page, while image-area capture helps retain visual evidence that text alone cannot represent. Each local record can preserve its source URL and capture time alongside the evidence and a personal note. A capture can be held in the **local Archive** for review, notes, and later organization before any delivery is requested.
 
 ![ProofClip delivery status](assets/connected-settings.png)
 
-*A sanitized side-panel view shows a completed delivery state without exposing the destination or captured material.*
+*A sanitized Capture-panel view shows a completed explicit delivery action without exposing the destination or captured material.*
 
-## Review your target fields before delivery
+## Keep research organized locally
 
-Configure a deployer-owned target once, then inspect the field mapping before you send a record. The settings view below intentionally uses neutral placeholders: this public guide does not expose target names, source values, or captured content.
+Organize local records with projects and tags, use search to find them later, and keep editable templates for repeatable note structure. The Outbox recovery flow keeps a failed explicit delivery available to review and retry. The Community edition does not deliver automatically: capture, local saving, and delivery remain separate actions.
 
-![ProofClip field mapping settings](assets/field-mapping.png)
+![ProofClip local organization illustration](assets/field-mapping.png)
 
-*The Field mapping control lets a self-hosted deployer review how a capture is prepared for its own configured target.*
+*This sanitized, non-runtime illustration represents local projects, tags, and search without showing a record, account, target, or configuration surface.*
 
 The public asset files are `docs/assets/capture-panel.png`, `docs/assets/connected-settings.png`, and `docs/assets/field-mapping.png`.
 
