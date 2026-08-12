@@ -23,3 +23,38 @@ test('public Community documentation requires only deployer-owned services', asy
   assert.match(architecture, /Deployer-owned Cloudflare Worker/i);
   assert.match(architecture, /Notion client secret remains a Worker secret/i);
 });
+
+test('project introduction leads with research and states the Community boundary', async () => {
+  const root = new URL('../../../', import.meta.url);
+  const [readme, introduction] = await Promise.all([
+    readFile(new URL('README.md', root), 'utf8'),
+    readFile(new URL('docs/project-introduction.md', root), 'utf8')
+  ]);
+  const researchHeading = introduction.indexOf('Literature and document research');
+  const otherUseCases = introduction.indexOf('Other research use cases');
+  assert.ok(researchHeading >= 0 && researchHeading < otherUseCases);
+  for (const phrase of [
+    'personal note',
+    'Alt+1',
+    'Alt+2',
+    'Alt+3',
+    'docs/assets/capture-panel.png',
+    'docs/assets/connected-settings.png',
+    'docs/assets/field-mapping.png',
+    'local Archive',
+    'explicitly',
+    'Community edition vs Commercial edition',
+    'published earlier-version baseline',
+    'AGPL-3.0-only',
+    'self-hosted',
+    'no central ProofClip-hosted dependency',
+    'commercial offering',
+    'more complete feature set',
+    'more polished experience',
+    'continuing version updates',
+    'self-deploy and operate it themselves'
+  ]) {
+    assert.match(introduction, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }
+  assert.match(readme, /docs\/project-introduction\.md/i);
+});
