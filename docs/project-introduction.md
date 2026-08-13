@@ -40,19 +40,23 @@ ProofClip keeps captures in the browser first. A delivery is an explicit user ac
 
 ## Self-hosting boundary
 
-This repository contains the Community edition: a self-hosted deployment with deployer-owned Cloudflare Worker/D1, Notion OAuth, upgrades, backups, and operations. It has no central ProofClip-hosted dependency. Start with the [deployment guide](../deploy/README.md) and review the [security model](security.md) before operating it.
+This repository contains the Community edition: a self-hosted deployment with deployer-owned Cloudflare Worker/D1, Notion OAuth, upgrades, backups, and operations. It has no central ProofClip-hosted dependency. Start with [Getting started](getting-started.md), continue with the [deployment guide](../deploy/README.md), and review the [security model](security.md) before operating it.
 
 ## Community edition vs Commercial edition
 
 | Topic | Community edition | Commercial edition |
 | --- | --- | --- |
-| Status and license | A published earlier-version baseline, AGPL-3.0-only and self-hosted, suited to users who want to self-deploy and operate it themselves. | Separately licensed and currently evolving under commercial terms, for users who want a more complete feature set, a more polished experience, and continuing version updates. |
+| Status and license | A published earlier-version baseline, AGPL-3.0-only and self-hosted, suited to users who want to self-deploy and operate it themselves. | Not available yet. When released, it is intended for users who want a cloud-managed service, a more complete feature set, a more polished experience, and continuing version updates. |
 | Operating responsibility | The Community deployer owns Cloudflare Worker/D1, Notion OAuth, upgrades, backups, and operations. There is no central ProofClip-hosted dependency. | Commercial terms are separate from the Community deployer's self-hosted operation. |
 | Current scope | This repository documents only the Community baseline. | The commercial offering is separate from this self-deployable Community baseline. |
+
+See [Commercial edition availability](edition-availability.md) for the current release-status statement and the intended post-release delivery path. It is not a promise of current availability.
 
 ## Continue from here
 
 - [Deploy ProofClip Community](../deploy/README.md)
+- [Get a first successful capture](getting-started.md)
+- [Read Commercial edition availability](edition-availability.md)
 - [Understand the architecture](architecture.md)
 - [Review the security model](security.md)
 - [Use the Community release checklist](acceptance/community-release-checklist.md)

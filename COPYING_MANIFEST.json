@@ -23,7 +23,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "e9ad9e583921139dce9fdeec7115a27227feefd9609bd46989fd59092a18d8e6"
+      "sha256": "0dd4d606eb6d9e6bfd82b5fdb4a6550b38ddb262e96c73408efd95a957945b31"
     },
     {
       "path": "SECURITY.md",
@@ -78,8 +78,16 @@
       "sha256": "e24f01e07147c0f82bad88ed78824c3a0f9069b4f2caf2df8a800629a9538f25"
     },
     {
+      "path": "docs/edition-availability.md",
+      "sha256": "c715f162bf3ed3a101c66e7fb75463b322ca7072a3322b8b5f0dc711fb39912a"
+    },
+    {
+      "path": "docs/getting-started.md",
+      "sha256": "13fcc3a64dc524a0fa6e36ced0fd9bdfca0aa2abae9d2137a54875ceae6759a4"
+    },
+    {
       "path": "docs/project-introduction.md",
-      "sha256": "d3425c5a60e8f22176b4d81fe0565e1b83f8bd439374e5fc9786cfef0ff7d329"
+      "sha256": "f1f5ca15df8717e9b1c2d7a08da498d891ddea822dac1ad424138ffd4989c397"
     },
     {
       "path": "docs/security.md",
