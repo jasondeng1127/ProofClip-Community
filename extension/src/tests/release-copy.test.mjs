@@ -102,6 +102,31 @@ test('README gives repository visitors a research-first Community product overvi
   assert.doesNotMatch(readme, /pricing|SLA|support guarantee|official hosting/i);
 });
 
+test('public distribution kit keeps research-first claims and includes a shareable preview', async () => {
+  const root = new URL('../../../', import.meta.url);
+  const kit = await readFile(new URL('docs/distribution-kit.md', root), 'utf8');
+  const socialPreview = await readFile(new URL('docs/assets/social-preview.png', root));
+  for (const phrase of [
+    'literature',
+    'research',
+    'Alt+1',
+    'Alt+2',
+    'Alt+3',
+    'local Archive',
+    'explicit',
+    'no background or automatic sync',
+    'self-deploy',
+    '7 days',
+    'successful signal',
+    'stop signal'
+  ]) {
+    assert.match(kit, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }
+  assert.doesNotMatch(kit, /pricing|SLA|support guarantee|official hosting/i);
+  assert.equal(socialPreview.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  assert.deepEqual([socialPreview.readUInt32BE(16), socialPreview.readUInt32BE(20)], [1280, 640]);
+});
+
 test('project introduction uses verified Community side-panel crops and describes notes after Archive review', async () => {
   const root = new URL('../../../', import.meta.url);
   // These are the exact, visible Community UI strings in the supplied source screenshots.

@@ -70,6 +70,14 @@
       "sha256": "29a188be285a4b59b3a617e65e6992f8db5c78b320d1de629082e1c932188c97"
     },
     {
+      "path": "docs/assets/social-preview.png",
+      "sha256": "940e01176f4e451fd261d21c7f25f7bfb820654b14d38c09b710fb3262991b25"
+    },
+    {
+      "path": "docs/distribution-kit.md",
+      "sha256": "e24f01e07147c0f82bad88ed78824c3a0f9069b4f2caf2df8a800629a9538f25"
+    },
+    {
       "path": "docs/project-introduction.md",
       "sha256": "d3425c5a60e8f22176b4d81fe0565e1b83f8bd439374e5fc9786cfef0ff7d329"
     },
@@ -427,7 +435,7 @@
     },
     {
       "path": "extension/src/tests/release-copy.test.mjs",
-      "sha256": "8473b448c83546e97b12abe46918632913aaf4e5b8e1684f7eab449b1530e687"
+      "sha256": "170ea0f504f8f0202b80b814fefe6f8a8e031d37a9f8aef337d3228a4d540384"
     },
     {
       "path": "extension/src/tests/release-hardening.test.mjs",
