@@ -80,7 +80,7 @@ test('README gives repository visitors a research-first Community product overvi
   const root = new URL('../../../', import.meta.url);
   const readme = await readFile(new URL('README.md', root), 'utf8');
   for (const phrase of [
-    'research workbench',
+    'research evidence workbench',
     'Alt+1',
     'Alt+2',
     'Alt+3',
@@ -91,15 +91,17 @@ test('README gives repository visitors a research-first Community product overvi
     'docs/assets/field-mapping.png',
     'Community edition',
     'Commercial edition',
-    'more complete feature set',
-    'more polished experience',
-    'continuing version updates',
-    'self-deploy and operate it themselves',
+    'open-source, self-hosted research evidence workbench',
+    'source, context, and the reason it mattered stay together',
+    'managed, ready-to-use experience',
+    'managed infrastructure',
+    'user-managed updates',
     'no background or automatic sync'
   ]) {
     assert.match(readme, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   }
   assert.doesNotMatch(readme, /pricing|SLA|support guarantee|official hosting/i);
+  assert.doesNotMatch(readme, /Google account|under appeal/i);
 });
 
 test('public distribution kit keeps research-first claims and includes a shareable preview', async () => {

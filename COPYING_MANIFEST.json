@@ -23,7 +23,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "0dd4d606eb6d9e6bfd82b5fdb4a6550b38ddb262e96c73408efd95a957945b31"
+      "sha256": "c40be449c3f62cae329d0151ea395c32faeed6c0f3f56454ece30ebf866dddcf"
     },
     {
       "path": "SECURITY.md",
@@ -443,7 +443,7 @@
     },
     {
       "path": "extension/src/tests/release-copy.test.mjs",
-      "sha256": "170ea0f504f8f0202b80b814fefe6f8a8e031d37a9f8aef337d3228a4d540384"
+      "sha256": "90e2c8f9abca60e10535643b469fe9d1c50197df81ddcd4079ca77c12bf308f7"
     },
     {
       "path": "extension/src/tests/release-hardening.test.mjs",

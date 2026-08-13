@@ -2,7 +2,7 @@
 
 Copyright (C) 2026 Jason. Licensed under [AGPL-3.0-only](LICENSE).
 
-ProofClip Community is a self-hosted research workbench for keeping web evidence close to the reading that produced it. It helps literature, academic, and document researchers preserve a useful passage, figure, or full page with its source, then return to it without breaking concentration.
+ProofClip Community is an open-source, self-hosted research evidence workbench built around a simple idea: captured information is most useful when its source, context, and the reason it mattered stay together. It helps researchers preserve passages, figures, and full-page evidence while keeping provenance and later interpretation connected to the original reading context.
 
 ## Choose the right path before you start
 
@@ -10,7 +10,7 @@ Choose **Community** when you are comfortable operating your own Cloudflare Work
 
 Do not choose Community expecting a Chrome Web Store install, a managed API, or automatic updates. This release is source-first: you load `extension/src` as an unpacked Chrome extension and operate the required services yourself.
 
-If you prefer a cloud-managed experience with no infrastructure deployment, see [Commercial edition availability](docs/edition-availability.md). The Commercial edition is **not available yet**; its release depends on restoration of the Google account currently under appeal.
+If you prefer a managed, ready-to-use experience with no infrastructure deployment, see [Commercial edition availability](docs/edition-availability.md). The Commercial edition is not currently available.
 
 ## Keep research moving
 
@@ -36,10 +36,12 @@ Captures default to the local Archive. Keep them there for review, personal note
 
 | | Community edition | Commercial edition |
 | --- | --- | --- |
-| Best fit | Users who want to self-deploy and operate it themselves. | Users who want a more complete feature set, a more polished experience, continuing version updates, and a cloud-managed service. |
-| Responsibility | The deployer runs the Worker, D1 database, Notion OAuth, upgrades, backups, and operations. | Commercial terms are separate from this self-hosted Community baseline. |
+| Best for | Researchers and teams who want control and self-hosting. | Users who prefer a managed, ready-to-use experience. |
+| Deployment | The deployer operates the Worker, D1 database, Notion OAuth, extension configuration, backups, and operations. | Managed infrastructure; no Worker, D1, or OAuth deployment by the user. |
+| Control and updates | Inspectable, deployer-owned infrastructure with user-managed updates. | Managed infrastructure and managed updates when available. |
+| Core value | A complete, local-first and inspectable evidence workflow under the deployer's control. | Convenience and managed operations. |
 
-The Commercial edition is not available today. When released, it is intended to be cloud-managed: no Worker, D1, or OAuth deployment by the user; download, one-click initialization, then connect the user's own Notion workspace through an explicit authorization step. Read the current [availability and delivery statement](docs/edition-availability.md) before relying on it.
+The Commercial edition is not currently available. When released, its intended path is download, one-click initialization, and use; connecting a user's own Notion workspace remains an explicit authorization step. Read [Commercial edition availability](docs/edition-availability.md) for the current status.
 
 ## First successful Community capture
 
