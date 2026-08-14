@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Evidence archive — ProofClip</title>
+    <link rel="stylesheet" href="archive.css">
+  </head>
+  <body>
+    <main>
+      <header class="archive-hero"><div><h1>Evidence archive</h1><p>Everything stays in this browser until you explicitly send a card to Notion.</p></div><span id="archiveCount">0 records</span></header>
+      <p id="status" class="status">Loading local archive…</p>
+      <section class="panel archive-tools">
+        <div class="controls"><label>Search<input id="archiveSearch" type="search" placeholder="Title, source, note, text or tag"></label><label>Project<select id="filterProject"></select></label><label>Tag<select id="filterTag"></select></label><label>Capture<select id="filterMode"><option value="">Any capture</option><option value="body">Body</option><option value="selection">Selection</option><option value="region">Region</option></select></label><label>Delivery<select id="filterDelivery"><option value="">Any delivery</option><option value="SENT">Sent</option><option value="PENDING">Pending</option><option value="FAILED">Failed</option><option value="LOCKED">Locked</option></select></label></div>
+        <div class="batch-actions"><button id="sendFilteredToNotion" disabled>Send filtered to Notion (0)</button><p id="batchDeliveryFeedback" class="action-feedback" aria-live="polite" hidden></p></div>
+        <div class="project-tools"><h2>Projects</h2><div class="project-actions"><input id="newProjectName" maxlength="120" placeholder="New project name"><button id="newProject">Create project</button><button id="renameProject" class="secondary">Rename selected</button><button id="deleteProject" class="danger">Delete selected</button></div><p id="projectFeedback" class="action-feedback" aria-live="polite" hidden></p><p class="hint">Deleting a project moves its cards to Unfiled only after confirmation.</p></div>
+      </section>
+      <section class="archive-workspace">
+        <section id="cards" class="archive-list" aria-live="polite"></section>
+        <aside id="reader" class="reader" aria-live="polite">
+          <p class="hint">Select an evidence record to read it.</p>
+          <div id="readerContent" hidden></div>
+          <section id="readerEvidence" hidden><div class="row"><h2>Original evidence</h2><button id="openFullReader" class="secondary">View full text</button></div><p class="hint">Original evidence — read only</p><p id="readerText" class="reader-text"></p></section>
+        </aside>
+      </section>
+    </main>
+    <dialog id="fullReader"><div class="row"><h2>Full evidence</h2><button id="closeFullReader" class="secondary">Close</button></div><div id="fullReaderText" class="full-reader-text"></div></dialog>
+    <script type="module" src="archive.js"></script>
+  </body>
+</html>

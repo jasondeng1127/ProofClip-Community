@@ -1,0 +1,608 @@
+{
+  "edition": "community",
+  "targetVersion": "0.8.0",
+  "tool": "release/export-community.mjs",
+  "boundarySha256": "5ebcc9ed7fafce52b4e5298e1187b3ac81668ee5d5558c3f3831cae29f123c80",
+  "upstream": {
+    "name": "Commercial 0.8 source (private)",
+    "branch": "codex/proofclip-v0.8.0",
+    "worktree": "D:\\网络赚钱\\.worktrees\\proofclip-v0.8.0",
+    "note": "Working-tree snapshot chosen by the maintainer (plan A). Resolve to a pinned tag before public release.",
+    "pin": {
+      "commit": "9d9e96a2b1994b42aa3419bdfaadc4bd597d6382",
+      "fingerprint": "105b4da8f6939b0b6272f03d6549fdb3ad157b80360cab72807c61015d3dbfa4",
+      "pinnedAt": "2026-08-14",
+      "note": "Immutable upstream identity: HEAD of codex/proofclip-v0.8.0 (commit 'bind v0.8 release artifact and verification'). Export is fail-closed: it verifies HEAD + clean worktree via git when available, otherwise the content fingerprint."
+    }
+  },
+  "fileCount": 116,
+  "skippedCount": 364,
+  "buildArtifacts": [
+    {
+      "path": "worker/dist/worker.mjs",
+      "note": "built at release cut time from the artifact source by worker/scripts/bundle-worker.mjs; intentionally not part of the source tree and excluded from the files list and from the commercial-boundary scan"
+    }
+  ],
+  "files": [
+    {
+      "path": "extension/src/archive.css",
+      "source": "upstream",
+      "sha256": "d1a750e36ca4c12bceb62352411b0c89cdca3246b4515988a5e56da84144956a"
+    },
+    {
+      "path": "extension/src/archive.html",
+      "source": "upstream",
+      "sha256": "59e38c4c19a6e554b56a10adb65bb3bc9d9c0a67b1d949d7fc284f8da34f6eb7"
+    },
+    {
+      "path": "extension/src/archive.js",
+      "source": "upstream",
+      "sha256": "2a20e6598ab208211d283b7db9db86136c0692abc0ea5a418f7d32105fc1f40b"
+    },
+    {
+      "path": "extension/src/assets/capture-page.png",
+      "source": "upstream",
+      "sha256": "09538a7541a70d557bb2924dc72376986a4db9ce7ab85544c8cdb5324d0d0f14"
+    },
+    {
+      "path": "extension/src/assets/capture-page.svg",
+      "source": "upstream",
+      "sha256": "deec49f4db228e9542a9265f71c53ebd5e9ae9c8a7f5e727589376ffef521df3"
+    },
+    {
+      "path": "extension/src/assets/capture-region.png",
+      "source": "upstream",
+      "sha256": "eb955df2f378da6868c5873c485a9499f1681a8914efbf2c05afa9b0f443452b"
+    },
+    {
+      "path": "extension/src/assets/capture-region.svg",
+      "source": "upstream",
+      "sha256": "4ac8c08d8e89004e48577f2ee234d65382ecc4d729572e6f76baa617a8d7a13a"
+    },
+    {
+      "path": "extension/src/assets/capture-selection.png",
+      "source": "upstream",
+      "sha256": "8f964b1dc962be5ec91a0ffa9aed50edada33361df99f3beecfdbbe268a9ecd5"
+    },
+    {
+      "path": "extension/src/assets/capture-selection.svg",
+      "source": "upstream",
+      "sha256": "3cb8bdd35e2c61c892c972c5a87ea0a0901fb46d4895291f0c1196867f9441ee"
+    },
+    {
+      "path": "extension/src/assets/icon-128.png",
+      "source": "upstream",
+      "sha256": "6640b66e84fa78710ce935f5a2ecaba1e19442269b4d73a6b2b187ca0c52a3d2"
+    },
+    {
+      "path": "extension/src/assets/icon-16.png",
+      "source": "upstream",
+      "sha256": "cce0ce6b44086848386b78534949768c6c4d9c20565436b74c30a051cf864b3a"
+    },
+    {
+      "path": "extension/src/assets/icon-32.png",
+      "source": "upstream",
+      "sha256": "9fcc88f84e05990b9a2a0a915ca8ec15790661b75dae78b3530c256fd299d9df"
+    },
+    {
+      "path": "extension/src/assets/icon-48.png",
+      "source": "upstream",
+      "sha256": "3f63668436bdd811e18ebc8ce2665769d69a86a370ce9213258110f7a997e05d"
+    },
+    {
+      "path": "extension/src/assets/proofclip-icon.svg",
+      "source": "upstream",
+      "sha256": "08171ede4dab087e50a2b8e1daef0042f2a493d80cec2dadfce823cfe5066632"
+    },
+    {
+      "path": "extension/src/background.js",
+      "source": "overlay",
+      "sha256": "50f4182cd1aaafde5bb8d5913afaa633041e3af8600b43ccb6077ff519da8152"
+    },
+    {
+      "path": "extension/src/community-config.mjs",
+      "source": "overlay",
+      "sha256": "3e1844e625d9ba4cbbaa28407e62004a01432301721e0d6cbbf5a14e6536161f"
+    },
+    {
+      "path": "extension/src/core/action-feedback.mjs",
+      "source": "upstream",
+      "sha256": "1576fdbc5df60717fb428c12c5135d20674d0640564608d2abf6ba8a059e9ba4"
+    },
+    {
+      "path": "extension/src/core/archive-actions.mjs",
+      "source": "upstream",
+      "sha256": "75899b7969359d60f6eb6a7978d82b73c64944265094ec2955397ffb13162359"
+    },
+    {
+      "path": "extension/src/core/archive-bulk-send.mjs",
+      "source": "upstream",
+      "sha256": "b14d2f70dcf4fc01f432e3d0d4f175932c7c0834ceb8981a0dfd4e992e0cbce3"
+    },
+    {
+      "path": "extension/src/core/archive-dedup.mjs",
+      "source": "upstream",
+      "sha256": "1ab72b35c886cb143f6c0579e5240955d24b3bc327ce3d3fe20d51fdcdc999af"
+    },
+    {
+      "path": "extension/src/core/archive-query.mjs",
+      "source": "upstream",
+      "sha256": "3017d455fe0ca94015b19aa1124b1981d81db956306235a0146373a9233f5214"
+    },
+    {
+      "path": "extension/src/core/archive-store.mjs",
+      "source": "upstream",
+      "sha256": "b024ce1121c428956a3fbe0a0f5d9cd7536a0151831b7fa244230a8eb3ba718a"
+    },
+    {
+      "path": "extension/src/core/capture-feedback.mjs",
+      "source": "overlay",
+      "sha256": "1f897bfa2a947b6b16e5c7638fa3bdddd3de33bb0caac33dc52b8a38bdacc37e"
+    },
+    {
+      "path": "extension/src/core/delivery-prerequisites.mjs",
+      "source": "overlay",
+      "sha256": "a89377ca7af45744191b54e233a9930eb57c9d6a82a74be6994a0f2e76dd6baa"
+    },
+    {
+      "path": "extension/src/core/direct-routing.mjs",
+      "source": "upstream",
+      "sha256": "d138fa95219d938832cce92df6955416bc7c0e5555a990cf55f6695c62c90e9d"
+    },
+    {
+      "path": "extension/src/core/evidence-card.mjs",
+      "source": "upstream",
+      "sha256": "dd0eb85ff46aaae361718f3550de7e57e9528b8e37783c6e756f201246cf77a3"
+    },
+    {
+      "path": "extension/src/core/evidence-migration.mjs",
+      "source": "overlay",
+      "sha256": "4ca1efab072538cf9965211fa254c4465253cb0667c73570e6f796bb8e04fb62"
+    },
+    {
+      "path": "extension/src/core/evidence-templates.mjs",
+      "source": "upstream",
+      "sha256": "b471347199a56b360c7b1d1d1a34b69c5dee57888e9177791e6f55831f2e96e4"
+    },
+    {
+      "path": "extension/src/core/notion-link.mjs",
+      "source": "upstream",
+      "sha256": "60a2c43847a5fd7a3f1a97607f22d68b8c16e76e4c009c09bd64879b997d3c0b"
+    },
+    {
+      "path": "extension/src/core/page-cleaner.mjs",
+      "source": "upstream",
+      "sha256": "cd0518fa5fc20f362bccc3d51bf0a16b328785d86265b0f7ede40c8a30786d08"
+    },
+    {
+      "path": "extension/src/core/page-structure.mjs",
+      "source": "upstream",
+      "sha256": "ab4431ec8dc5a6b982ded210057d593d2b0da05c32f0641c444a60a80e0407bf"
+    },
+    {
+      "path": "extension/src/core/project-delivery.mjs",
+      "source": "upstream",
+      "sha256": "11455908e7716f5836022701803cb7a77c664f8874f90d205d17a34de28a8206"
+    },
+    {
+      "path": "extension/src/core/projects.mjs",
+      "source": "upstream",
+      "sha256": "c1a161cdc530eafbe43b739b948047c70e42c4ab6697ac60560d041c37cb727a"
+    },
+    {
+      "path": "extension/src/core/proofclip-api.mjs",
+      "source": "overlay",
+      "sha256": "28e9a91f49ba1635f829ccbffdd612407d15aa3e97649c95dd283ca9152c3751"
+    },
+    {
+      "path": "extension/src/core/record.mjs",
+      "source": "overlay",
+      "sha256": "021aa9be50bb282142e50b0acf4015deb98f716c90b7f6c6faf154090433394d"
+    },
+    {
+      "path": "extension/src/core/region-capture-feedback.mjs",
+      "source": "upstream",
+      "sha256": "17adf05b77e1c34008c106b4cbfd8095c54dc31d05aa1747ef7f9f487c015e3f"
+    },
+    {
+      "path": "extension/src/core/region-capture.mjs",
+      "source": "upstream",
+      "sha256": "1ea6d4a6d6b2d4f9b50ac2456a92d5cfc8f489aa8419a17a8be39c7d05068603"
+    },
+    {
+      "path": "extension/src/core/site-readable-adapters.mjs",
+      "source": "upstream",
+      "sha256": "fcb284ecf54a8da37b78187f8366c46fa1740c7318ba8b1bc1a44e50bc004afb"
+    },
+    {
+      "path": "extension/src/core/storage.mjs",
+      "source": "overlay",
+      "sha256": "05d6ba7ca4c9d726a69fd0133d640341d9af2d23e3ea162c6affdca98dd250a7"
+    },
+    {
+      "path": "extension/src/core/text.mjs",
+      "source": "upstream",
+      "sha256": "0e015cc963d9c8293f80fd17e38cae258ae2d2547daf017faf5c0bbaf9d64912"
+    },
+    {
+      "path": "extension/src/manifest.json",
+      "source": "overlay",
+      "sha256": "24ff3643a8f1f28cbbc067569533a333eb80e28eae1c4f86bd630764c583e194"
+    },
+    {
+      "path": "extension/src/popup.css",
+      "source": "overlay",
+      "sha256": "819fcfc582a04c869f1f72f9ab46e391f246ece28a2606206878f04de6611a8a"
+    },
+    {
+      "path": "extension/src/popup.html",
+      "source": "overlay",
+      "sha256": "fd07b62187528c4805ffeb61cc5eb51b41d60abf5c7f9a32c6f912d869500a67"
+    },
+    {
+      "path": "extension/src/popup.js",
+      "source": "overlay",
+      "sha256": "e3184cbc2fe75c6e366dcee8c41641dd2bd3c331bfefb37a6231be0838d6fec0"
+    },
+    {
+      "path": "extension/src/README.md",
+      "source": "overlay",
+      "sha256": "2b25f4a1541dd3477042419e3eb9f7bae8625ca645ac43118b9ee7d90e000ee6"
+    },
+    {
+      "path": "extension/src/tests/action-feedback.test.mjs",
+      "source": "upstream",
+      "sha256": "ce6a41aaff6db219476283c3bdfe4812d4c83cc2308935b6845eee9cb61e40a4"
+    },
+    {
+      "path": "extension/src/tests/archive-bulk-send.test.mjs",
+      "source": "upstream",
+      "sha256": "fa6eecfbb2dbfb8ac6864573592524c8fecfa2305471d3f2129eda081b23e74e"
+    },
+    {
+      "path": "extension/src/tests/archive-card-layout-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "99a8bf6af0484fbc7d046d3e47505c13a9c9adb9381aa87b7090ac0bcb4024ca"
+    },
+    {
+      "path": "extension/src/tests/archive-dedup.test.mjs",
+      "source": "upstream",
+      "sha256": "d5f2f29e2450cd86b25c3eb5001ba96a7c64510baf8c06392d06a0ba292c5366"
+    },
+    {
+      "path": "extension/src/tests/archive-idb.test.mjs",
+      "source": "overlay",
+      "sha256": "84ec32edd03f6653acf271ea101337558cd578c637b827cb828800b174431e92"
+    },
+    {
+      "path": "extension/src/tests/archive-page-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "c4eef2afd6d920f916b245a5746c0fa31f19924b8ff2a4dbc5fabdbaf5a14038"
+    },
+    {
+      "path": "extension/src/tests/archive-query.test.mjs",
+      "source": "upstream",
+      "sha256": "2b4d6f00d7861c77ba4f5c411e5f155a0a8cd40e5ea5cce60afc9cdbc0d109b1"
+    },
+    {
+      "path": "extension/src/tests/archive-reader-ui.test.mjs",
+      "source": "upstream",
+      "sha256": "48fbb6c0d7a9c881ebcbe84928b590681bdfe88254c1a31ee6548430e76bc7a2"
+    },
+    {
+      "path": "extension/src/tests/archive-removal.test.mjs",
+      "source": "upstream",
+      "sha256": "903a49df979955c3d05f622ded2cdead5d59cdd58c195860548aae79e7bcaccf"
+    },
+    {
+      "path": "extension/src/tests/capture-feedback.test.mjs",
+      "source": "upstream",
+      "sha256": "969da7339c4441bf6144ae0138309ab582df0a3184cdd83ab1e2c41dad847dc2"
+    },
+    {
+      "path": "extension/src/tests/cjk-scan.test.mjs",
+      "source": "overlay",
+      "sha256": "ee4e85dfbe3989aba9209f6f5b470c9c1d8882ef1cef15e5cbaa27c78e30b41d"
+    },
+    {
+      "path": "extension/src/tests/community-boundary.test.mjs",
+      "source": "overlay",
+      "sha256": "00afa30ef89111820ea8cf3ed5a428210115c7ca877049f636074540eff86004"
+    },
+    {
+      "path": "extension/src/tests/community-commercial-boundary.test.mjs",
+      "source": "overlay",
+      "sha256": "db12b460c4dc2e06c9a673359acc9a645a5de841cf01dadd0db18376511a3847"
+    },
+    {
+      "path": "extension/src/tests/context-menu-wiring.test.mjs",
+      "source": "overlay",
+      "sha256": "df832d3484d42c471075b272842664dc4ae98e3229e662a88b04673d5e5c9043"
+    },
+    {
+      "path": "extension/src/tests/core.test.mjs",
+      "source": "upstream",
+      "sha256": "5fa508cb24bd774ee5f9fdda06f8c05fd96a0c474e0ea3a1aa2eacea75ac2971"
+    },
+    {
+      "path": "extension/src/tests/current-release-preflight.test.mjs",
+      "source": "overlay",
+      "sha256": "7d08a9ccefb8786cb134928bfc214e8558d042e45813742b4c817013a93ea846"
+    },
+    {
+      "path": "extension/src/tests/data-source-setup-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "2cd984eadc64fb93ece3c22797d12da54cb0c0ea9d16ff5c2432303dd5d5ddca"
+    },
+    {
+      "path": "extension/src/tests/delivery-lock.test.mjs",
+      "source": "upstream",
+      "sha256": "a08c7fc26038f84ee10f6a22ff52d49f3b45e09a958e2e626f60dd4cfcbd820a"
+    },
+    {
+      "path": "extension/src/tests/delivery-prerequisites.test.mjs",
+      "source": "upstream",
+      "sha256": "2706654bc57b635f201de43faf0a0822ea916aecc711e56f2bf5bb6e6f851daa"
+    },
+    {
+      "path": "extension/src/tests/direct-routing-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "91c89db95a5732e56b8e4e9d56e5b2b5ed2b905cfed84f2b33f48a14777a8518"
+    },
+    {
+      "path": "extension/src/tests/direct-routing.test.mjs",
+      "source": "upstream",
+      "sha256": "112ca197c20d2fa14af27cfd1efc319a180227311f75fbf48df0dc08de94f515"
+    },
+    {
+      "path": "extension/src/tests/duplicate-confirm-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "783de0449c9327663e2c0cd57649395b3be6fa5aab2c713f3aebb884407af98c"
+    },
+    {
+      "path": "extension/src/tests/evidence-card.test.mjs",
+      "source": "upstream",
+      "sha256": "cc37a93758f7a5e04e61ff7107504655a412260b6cbbbf44f0964d1b966b76ea"
+    },
+    {
+      "path": "extension/src/tests/evidence-migration.test.mjs",
+      "source": "overlay",
+      "sha256": "31e40990d376a08ceaf03e89ea1da09e914820e87f2c903b25178194cedb8c7c"
+    },
+    {
+      "path": "extension/src/tests/evidence-templates.test.mjs",
+      "source": "upstream",
+      "sha256": "ce58cddf16fad30a61acb8ac817307d1d6bfaeb0d038b496e66548240c562097"
+    },
+    {
+      "path": "extension/src/tests/extension-id.test.mjs",
+      "source": "overlay",
+      "sha256": "3e6dbb59789009e56ece55c6f5ba5eb32723b788f1f66ea0871a71dbb3610c66"
+    },
+    {
+      "path": "extension/src/tests/file-inventory.test.mjs",
+      "source": "overlay",
+      "sha256": "ddfe000e0a12bdfe3a2652b5619d7387c7733ff7af8aae41a1ad6134d1dd1861"
+    },
+    {
+      "path": "extension/src/tests/manifest.test.mjs",
+      "source": "overlay",
+      "sha256": "c2b017e654c1c881f6bd652faea595a0ae0704025812225ad364c5b70c18bc1b"
+    },
+    {
+      "path": "extension/src/tests/mutate-state.test.mjs",
+      "source": "overlay",
+      "sha256": "9d94b2891699d9888bac445550dc4bc22b468abbbe24c9484e336fc355dc51b1"
+    },
+    {
+      "path": "extension/src/tests/notion-link.test.mjs",
+      "source": "upstream",
+      "sha256": "3c2e1ef2cd8c50100cbe5e8526c771671d20c293ddd084a18e3941daf42ef437"
+    },
+    {
+      "path": "extension/src/tests/page-cleaner.test.mjs",
+      "source": "upstream",
+      "sha256": "e8785e9f209a4451199ec62d8f4da15cd9e0a33f9d213041400c9ca39b6a1d6c"
+    },
+    {
+      "path": "extension/src/tests/page-structure.test.mjs",
+      "source": "upstream",
+      "sha256": "82d36bd0aaffc989c6c0b9ecc24041006214a47da7a842fcb696e75119385cf1"
+    },
+    {
+      "path": "extension/src/tests/popup-action-feedback-wiring.test.mjs",
+      "source": "overlay",
+      "sha256": "736b4a73598188ba430c6c74b62310d85d74cb8c6aa3b8cdb33594cf5e9e9b27"
+    },
+    {
+      "path": "extension/src/tests/popup-capture-handoff.test.mjs",
+      "source": "overlay",
+      "sha256": "b606b1070a1131c0f196537d1328e0f83b7b5f2a774a5f535534cb1a887da2a5"
+    },
+    {
+      "path": "extension/src/tests/popup-privacy.test.mjs",
+      "source": "upstream",
+      "sha256": "c355c8242c97852bee64bd4c8e607002e0ae6c4d31c83ed125af15d3f8adb8aa"
+    },
+    {
+      "path": "extension/src/tests/privacy-disclosure.test.mjs",
+      "source": "overlay",
+      "sha256": "3ff04ff598f2713eda8a2d239ed50bbd40fdbb65efae15bbf3c50ee41b255e1f"
+    },
+    {
+      "path": "extension/src/tests/project-delivery.test.mjs",
+      "source": "upstream",
+      "sha256": "909d6c7b14be2d5bf72cbd67414f4f714d1baf5e00b7a4beba923bec83df3c37"
+    },
+    {
+      "path": "extension/src/tests/projects.test.mjs",
+      "source": "upstream",
+      "sha256": "07df5782863a2f29ae8c851aadc8895db4c88f2db7a73dd0c138fa433632f8f2"
+    },
+    {
+      "path": "extension/src/tests/proofclip-api.test.mjs",
+      "source": "overlay",
+      "sha256": "cfeff3f06f00f0064d7b0abd4efb8a58647898c95eaafea4046a3bbc604d8dc5"
+    },
+    {
+      "path": "extension/src/tests/public-source-guard.test.mjs",
+      "source": "overlay",
+      "sha256": "1c10388731c61cdff50a2f03b2920339ae0447242c2e9170412b3a7130938665"
+    },
+    {
+      "path": "extension/src/tests/record-longtext.test.mjs",
+      "source": "upstream",
+      "sha256": "85a72af70ce7d5511dd6863c9e84424e1a9f3701ef06628b283dc4a3a73bd114"
+    },
+    {
+      "path": "extension/src/tests/record.test.mjs",
+      "source": "upstream",
+      "sha256": "3113bf2b5570b13aee8d02a62d50b1e53775ad81fb5ed240fac86d8f5b2651e8"
+    },
+    {
+      "path": "extension/src/tests/region-capture-feedback.test.mjs",
+      "source": "upstream",
+      "sha256": "496fa974cad332457afc363506048bb4783910ff799d7f8283b3d59b7b8fe3f9"
+    },
+    {
+      "path": "extension/src/tests/region-capture.test.mjs",
+      "source": "upstream",
+      "sha256": "07bd9016ba1573610ed4bbc1be643b48afe1c1d516f97479c6f1d549ec35b013"
+    },
+    {
+      "path": "extension/src/tests/release-copy.test.mjs",
+      "source": "overlay",
+      "sha256": "706d032af4f3dccc379d9389f35a0b31a8d216b755e924e20303ea11b5edbea7"
+    },
+    {
+      "path": "extension/src/tests/release-hardening.test.mjs",
+      "source": "overlay",
+      "sha256": "4c39eca1d8a63e554b40a1c89bc76b9c9607b83d02faf8b9a4791ea1e09533a5"
+    },
+    {
+      "path": "extension/src/tests/settings-template.test.mjs",
+      "source": "upstream",
+      "sha256": "e5302f73425769482d2a084710c454ac062dfc635b75d54f64442a36645e018f"
+    },
+    {
+      "path": "extension/src/tests/shortcuts-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "7179d86c7e7f2a21f7924a215a16bcaa1d970d816b8eeffcba1542386472e50f"
+    },
+    {
+      "path": "extension/src/tests/side-panel-wiring.test.mjs",
+      "source": "overlay",
+      "sha256": "07b8a06aa2b3b7d1f4e30374ac59f546be5daecaedb557d930dd31fcf2c92e9a"
+    },
+    {
+      "path": "extension/src/tests/site-readable-adapters.test.mjs",
+      "source": "upstream",
+      "sha256": "06de0180d1fa3459195c97d88698d2fdee41b386d767a51eadbcf2386fd8be34"
+    },
+    {
+      "path": "extension/src/tests/template-ui-wiring.test.mjs",
+      "source": "upstream",
+      "sha256": "ed458956cfc1b24b23c0e46e9cfbf23f50b0bdccbc1f3f686ed0c8b370bf24ee"
+    },
+    {
+      "path": "extension/src/tests/toast-actions-wiring.test.mjs",
+      "source": "overlay",
+      "sha256": "fb0dd7ad68f52634fc2cd3020aabadf01767c5f50ed5ed04ba5de2f9bd28e0ae"
+    },
+    {
+      "path": "worker/migrations/20260813_privacy_nonretention.sql",
+      "source": "overlay",
+      "sha256": "2fcb90af79092408d98b6986d6c87956e5c0c71e46928dabf17b44fe5cd62fa1"
+    },
+    {
+      "path": "worker/scripts/bundle-worker.mjs",
+      "source": "overlay",
+      "sha256": "08320c87910f1fc61e75b7eb435b4fbf5150c42f21574b42f518f9de118b34e5"
+    },
+    {
+      "path": "worker/src/d1-repository.mjs",
+      "source": "overlay",
+      "sha256": "81444372f3a541e3cc7d30ef218f97b76c018b94f5024865773338c69dfd9007"
+    },
+    {
+      "path": "worker/src/identity.mjs",
+      "source": "upstream",
+      "sha256": "096762e4cd8afa18efe7d6b3caf81caa98111a7830d9ab3594a824f99deecfc1"
+    },
+    {
+      "path": "worker/src/index.mjs",
+      "source": "upstream",
+      "sha256": "179cc33f1ac2f1cd2672c932f9302fdac45cb3aa6c57e15929ded652561100a7"
+    },
+    {
+      "path": "worker/src/notion-proxy.mjs",
+      "source": "upstream",
+      "sha256": "9f67f2bec1760748b14ee4fbfb174025ff75cfe281873e9974fb9c81e3c06bf8"
+    },
+    {
+      "path": "worker/src/oauth.mjs",
+      "source": "upstream",
+      "sha256": "7bcc06cb74b56c06f8d01ccbf454e655d60b97994decc8531568ca61336f4c9a"
+    },
+    {
+      "path": "worker/src/rate-limit.mjs",
+      "source": "overlay",
+      "sha256": "018522fcfb87224f717d0d071d7d62e89e9380734703b06549d2b29f7b7c7888"
+    },
+    {
+      "path": "worker/src/schema.sql",
+      "source": "overlay",
+      "sha256": "f33f67c705b178ca4cd585fdb2fa0bf4ac49ff0c45676f85f09d5d36d85e0a8c"
+    },
+    {
+      "path": "worker/src/tests/bundle-worker.test.mjs",
+      "source": "overlay",
+      "sha256": "36eb6a7c92391be4ed3611c7cf238eb6fe7bfb5eb42cce617f31bdeeaff41e64"
+    },
+    {
+      "path": "worker/src/tests/community-service-boundary.test.mjs",
+      "source": "overlay",
+      "sha256": "9627819a8d447030fd39f60680076e779076a27e409aae3f55ab4ac27e47603f"
+    },
+    {
+      "path": "worker/src/tests/d1-repository.test.mjs",
+      "source": "overlay",
+      "sha256": "8c43e362b2b6ee385e7f29e7889e23626e78ad3b130f90c26dad533e0b7dab6c"
+    },
+    {
+      "path": "worker/src/tests/notion-proxy.test.mjs",
+      "source": "upstream+transform",
+      "sha256": "956388af9f35e15891aa3fc111bb9ef898c29b7da95132ccb2ec33b180c294f5"
+    },
+    {
+      "path": "worker/src/tests/oauth-foundation.test.mjs",
+      "source": "upstream",
+      "sha256": "80cb120af938dea275bacd8b105faf7eea6ee10d2e3bce3cc34a2f3903435981"
+    },
+    {
+      "path": "worker/src/tests/rate-limit.test.mjs",
+      "source": "upstream",
+      "sha256": "38aad72c0456f92bbd3b3703365cc1dfde9fc730a969ea964d3d90079a38267b"
+    },
+    {
+      "path": "worker/src/tests/schema.test.mjs",
+      "source": "overlay",
+      "sha256": "66a39820de8edb657e6a58fa96c7571443eb31e344e2f32393282ff08c2ea9b1"
+    },
+    {
+      "path": "worker/src/tests/worker.test.mjs",
+      "source": "overlay",
+      "sha256": "437e0e65f626889c0147bf0204605131ab97bb6b80d3b9cececab9f13b79e9c2"
+    },
+    {
+      "path": "worker/src/token-vault.mjs",
+      "source": "upstream",
+      "sha256": "53b8fbc644f6d30b2af1c5536a282f7579aece73cb0339838071bb2212d5774a"
+    },
+    {
+      "path": "worker/src/worker.mjs",
+      "source": "overlay",
+      "sha256": "77a7a2076561c64525750455c9f4b227aa1e1ccc71b03f60cd3a4fc6204f1b8d"
+    }
+  ]
+}

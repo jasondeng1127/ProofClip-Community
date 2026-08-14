@@ -57,9 +57,23 @@ foreach ($relativeFile in $trackedFiles) {
   }
 }
 
+# Community commercial-boundary scan (A5): product source must be free of
+# commercial facilities, official identities and quota UI. Runs on the
+# extension/ and worker/ roots of this repository.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+  $failures.Add('node is required for the Community commercial-boundary scan but was not found on PATH')
+} else {
+  $scanner = Join-Path $repositoryRoot 'release\verify-generated-tree.mjs'
+  $scanOutput = & node $scanner --tree $repositoryRoot --repo 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    $failures.Add('commercial-boundary scan failed: ' + (($scanOutput | Out-String).Trim()))
+  }
+}
+
 if ($failures.Count -gt 0) {
   $failures | ForEach-Object { Write-Error $_ }
   exit 1
 }
 
-Write-Output "Public-source verification passed for $($trackedFiles.Count) file(s)."
+Write-Output "Public-source verification passed for $($trackedFiles.Count) file(s) (commercial-boundary scan included)."

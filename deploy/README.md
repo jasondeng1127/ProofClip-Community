@@ -28,9 +28,7 @@ Copy the returned database ID into `worker/wrangler.jsonc`.
 cd worker
 node scripts/bundle-worker.mjs
 wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file src/schema.sql --remote
-wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260729_lifetime_license.sql --remote
-wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260729_webhook_state.sql --remote
-wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260807_subscription_keys.sql --remote
+wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260813_privacy_nonretention.sql --remote
 ```
 
 ## 3. Configure secrets and Notion OAuth

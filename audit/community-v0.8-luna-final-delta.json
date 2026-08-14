@@ -1,0 +1,73 @@
+{
+  "version": "0.8.0",
+  "workspace": "D:\\ProofClip-Community",
+  "branch": "main",
+  "head_commit": "ac645ae6b38f9419b9c546e255296e4e4f7afc0d",
+  "release_tag": "",
+  "artifact_zip": "release/artifacts/proofclip-community-0.8.0-2026-08-14T13-26-11-068Z.zip",
+  "artifact_sha256": "8e7018a78c4b9ee3c130467cdd2e927a9464ff0710b96b39f00753c9f85baf90",
+  "artifact_bundle_sha256": "ae8b507561ad98054992dd0c8af8797b16ec04e23caf8688225c7a56c7b67c77",
+  "artifact_content_fingerprint": "00dbb89f2b146c331d9856c611fa64e628e8fd259969f9ab9a1322fd5ee84f39",
+  "release_record": "release/records/release-record.json",
+  "record_source_commit": null,
+  "record_rehearsals": {
+    "freshDeploy": "NOT_RUN",
+    "upgrade07To08": "NOT_RUN"
+  },
+  "canonical_provenance": "release/provenance/community-0.8.0.json",
+  "canonical_provenance_sha256": "a692ca4ccc1b910d5863ff225aaee8f8879ca039caf68ce1a11b34e0ec63db3f",
+  "upstream_pin_commit": "9d9e96a2b1994b42aa3419bdfaadc4bd597d6382",
+  "upstream_current_head": "9d9e96a2b1994b42aa3419bdfaadc4bd597d6382",
+  "upstream_pin_verified": true,
+  "upstream_tracked_worktree_clean": true,
+  "extension_tests": "passed",
+  "worker_tests": "passed",
+  "boundary_tests": "passed",
+  "public_source": "passed",
+  "release_tests": "passed",
+  "test_counts": {
+    "extension": 200,
+    "worker": 59,
+    "boundary": 5,
+    "pipeline": 5,
+    "governance": 13,
+    "release_total": 18,
+    "public_source_files": 197,
+    "retries": 0,
+    "flaky": false
+  },
+  "automated_release_closure": "partial",
+  "normal_release_audit": "failed_current_candidate",
+  "release_ready_audit": "failed_current_candidate",
+  "fresh_deploy_rehearsal": "not_verified",
+  "upgrade_0_7_to_0_8": "not_verified",
+  "candidate_binding": "failed",
+  "claim_verification": {
+    "CLAIM-1": "partial",
+    "CLAIM-2": "verified",
+    "CLAIM-3": "verified",
+    "CLAIM-4": "partial",
+    "CLAIM-5": "verified",
+    "CLAIM-6": "partial",
+    "CLAIM-7": "verified",
+    "CLAIM-8": "partial"
+  },
+  "blockers": [
+    "Current release record sourceBinding.commit is null; artifact is not bound to the frozen HEAD.",
+    "No v0.8.0 or v0.8.0-rcN tag points at the audited HEAD.",
+    "Fresh self-host rehearsal has no real evidence and remains NOT_RUN.",
+    "0.7 to 0.8 upgrade rehearsal has no real evidence and remains NOT_RUN."
+  ],
+  "majors": [],
+  "notes_post_0_8": [
+    "release-readiness workflow delegates authoritative strict audit to the environment holding local record/artifact.",
+    "cut-release still reads generated PROVENANCE for provenanceMatch while audit and packaging use canonical provenance.",
+    "canonical provenance is not Git tracked despite current documentation wording.",
+    "MIGRATION and acceptance docs retain stale 115-file and 199/199 counts and canonical-committed wording.",
+    "rehearsal docs still describe bare PASS strings instead of the evidence object.",
+    "set-rehearsal accepts PASS when record sourceBinding.commit is null; strict audit still blocks that candidate."
+  ],
+  "recommended_state": "NOT_READY",
+  "released": false,
+  "report_path": "audit/community-v0.8-luna-final-delta.md"
+}

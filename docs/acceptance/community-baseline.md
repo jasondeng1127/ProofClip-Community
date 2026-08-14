@@ -20,6 +20,12 @@ Because that gate is red, do not commit the imported source as a future-public h
 
 1. Complete the Community copy/subscription/support remediation without regressing core capture behavior.
 2. Re-run public-source verification with zero findings.
-3. Generate `COPYING_MANIFEST.json` after the clean scan and make the first public-safe source commit.
+3. Generate the source manifest (`PROVENANCE.json` via `release/export-community.mjs` — supersedes the legacy `COPYING_MANIFEST.json`) after the clean scan and make the first public-safe source commit.
 4. Run a fresh Cloudflare/D1/Notion OAuth deployment rehearsal using new deployer-owned accounts and an independently loaded extension ID.
 5. Confirm the code license and publish the repository only with Jason's approval.
+## Community 0.8 generation (M1) — post-swap
+
+- Deterministic export pipeline (`release/export-community.mjs` + `release/edition-boundary.json` + `release/overlay/`) produced `release/out/community-0.8.0/` (PROVENANCE.json, targetVersion 0.8.0) from the private `codex/proofclip-v0.8.0` worktree snapshot.
+- Commercial facilities (subscription/license/quota/usage/webhook, official identities, private material) are excluded from the generated tree; UI carries no plan/quota copy.
+- Gates: generated-tree scan CLEAN; extension suite 200/200 full (199/199 with the public-source guard excluded); worker suite 59/59; pipeline self-tests 5/5; governance self-tests 10/10 (Luna adversarial cases included); release-audit auto gates green in a git environment.
+- 2026: maintainer approved the swap; `extension/` and `worker/` now hold the 0.8 tree (0.7 backup moved out of the workspace to `D:\ProofClip-Community-0.7-backup`). Repo-mode commercial-boundary scan CLEAN.

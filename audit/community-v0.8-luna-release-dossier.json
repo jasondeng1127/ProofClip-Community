@@ -1,0 +1,98 @@
+{
+  "version": "0.8.0",
+  "head_commit": "ac645ae6b38f9419b9c546e255296e4e4f7afc0d",
+  "release_tag": null,
+  "artifact_zip": null,
+  "artifact_sha256": null,
+  "git_clean": false,
+  "tests": {
+    "extension": "failed",
+    "worker": "passed",
+    "community_boundary": "passed",
+    "public_source": "failed",
+    "release_audit": "failed"
+  },
+  "product_parity": "needs_review",
+  "commercial_boundary": "failed",
+  "self_host_boundary": "needs_review",
+  "upgrade": "not_verified",
+  "blocker_candidates": [
+    "Untracked release/tmp/backup-0.7-swap contains retired Commercial 0.7 source and the public-source gate exits 1.",
+    "No ZIP artifact, artifact SHA256, release tag, current release record, or source-commit binding exists."
+  ],
+  "major_candidates": [
+    "No release-audit implementation or stale-artifact governance was found.",
+    "Generated worker/dist/worker.mjs is outside PROVENANCE.json and skipped by the scanner.",
+    "No real Cloudflare, D1, Notion OAuth, Chrome, Notion Data Source, CORS, or 0.7 profile rehearsal was executed."
+  ],
+  "unverified_items": [
+    "Real Chrome and external Notion delivery",
+    "Deployer-owned Worker/D1/OAuth deployment",
+    "0.7 to 0.8 profile and remote schema migration rehearsal",
+    "Artifact ZIP provenance and SHA256",
+    "Old-artifact and stale-artifact detection",
+    "COPYING_MANIFEST.json/source manifest verification",
+    "Staged READY_TO_RELEASE governance and work-item evidence synchronization"
+  ],
+  "audit_metadata": {
+    "workspace_path": "D:\\ProofClip-Community",
+    "branch": "main",
+    "manifest_version": "0.8.0",
+    "generated_tree": "release/out/community-0.8.0",
+    "provenance_path": "release/out/community-0.8.0/PROVENANCE.json",
+    "provenance_file_count": 115,
+    "provenance_skipped_count": 359,
+    "provenance_boundary_sha256": "630532e62d931e8e410edbb74a5e35b67ca8dfc5145927bb62d479a1f66d41a6",
+    "extension_test_counts": {
+      "tests": 199,
+      "passed": 198,
+      "failed": 1,
+      "skipped": 0,
+      "exit_code": 1
+    },
+    "worker_test_counts": {
+      "tests": 59,
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "release_pipeline_test_counts": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "agent_probe_test_counts": {
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "community_boundary_test_counts": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "release_hardening_test_counts": {
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "public_source_findings": 5,
+    "commercial_backup_matching_files": 54,
+    "commercial_backup_matching_lines": 747,
+    "product_root_generated_compare": {
+      "extension_files": 96,
+      "worker_files": 19,
+      "mismatches": 0
+    },
+    "retry_or_flaky": "Extension suite was run twice with the same 198 pass / 1 fail result; no flaky behavior observed."
+  }
+}

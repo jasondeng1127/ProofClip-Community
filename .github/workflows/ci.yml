@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Pipeline + governance self-tests
+        run: node --test release/tests/export-pipeline.test.mjs release/tests/release-governance.test.mjs
+      - name: Extension suite (incl. public-source guard)
+        run: node --test '.\tests\*.test.mjs'
+        working-directory: extension/src
+      - name: Worker suite
+        run: node --test '.\tests\*.test.mjs'
+        working-directory: worker/src
+      - name: Public-source gate (pwsh + git)
+        run: pwsh -NoProfile -File scripts/verify-public-source.ps1 -IncludeUntracked
+      - name: Commercial-boundary scan of the committed Community tree
+        run: node release/verify-generated-tree.mjs --tree . --repo

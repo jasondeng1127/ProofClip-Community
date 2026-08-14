@@ -25,3 +25,11 @@ browser-profile/
 
 # Local Community extension configuration
 extension/community-config.mjs
+# Generated Community trees and release state
+release/out/
+release/tmp/
+release/tmp*/
+release/artifacts/
+release/records/
+# Audit working artifacts (Luna dossiers stay out of the release repo)
+.audit/
