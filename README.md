@@ -28,8 +28,6 @@ Capture while reading, then open the saved Archive record to add a personal note
 
 Captures default to the local Archive. Keep them there for review, personal notes, projects, tags, and search; editable templates and field mapping help make repeated research workflows consistent. A user may explicitly select direct delivery during capture, but there is no background or automatic sync. Failed explicit deliveries remain available in the Outbox for review and retry.
 
-![ProofClip Community Capture panel showing an explicit delivery completed](docs/assets/connected-settings.png)
-
 ![ProofClip Community generic field-mapping controls](docs/assets/field-mapping.png)
 
 ## Community edition vs Commercial edition
