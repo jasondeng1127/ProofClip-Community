@@ -22,15 +22,16 @@ Capture while reading, then open the saved Archive record to add a personal note
 | `Alt+2` | Image area | A figure, table, or other visual evidence matters. |
 | `Alt+3` | Full page | The surrounding context matters as much as the passage. |
 
-![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/evidence.png)
+![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/social-preview.png)
 
 ## Save locally, deliver deliberately
 
 Captures default to the local Archive. Keep them there for review, personal notes, projects, tags, and search; editable templates and field mapping help make repeated research workflows consistent. A user may explicitly select direct delivery during capture, but there is no background or automatic sync. Failed explicit deliveries remain available in the Outbox for review and retry.
 
 ![ProofClip Community generic field-mapping controls](docs/assets/evidence.png)
-![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/notion效果.png).
 ![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/快捷键使用提示.png)
+![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/notion效果.png).
+
 ## Community edition vs Commercial edition
 
 | | Community edition | Commercial edition |
