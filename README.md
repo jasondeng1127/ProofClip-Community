@@ -22,7 +22,7 @@ Capture while reading, then open the saved Archive record to add a personal note
 | `Alt+2` | Image area | A figure, table, or other visual evidence matters. |
 | `Alt+3` | Full page | The surrounding context matters as much as the passage. |
 
-![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/capture-panel.png)
+![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/social-preview.png)
 
 ## Save locally, deliver deliberately
 
