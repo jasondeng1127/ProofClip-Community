@@ -343,15 +343,15 @@ async function showDuplicateConfirmToast(tabId, canonicalUrl, capturedAt, reques
   ], { confirmSeconds: 3 });
 }
 
-async function attemptDelivery(state, record) {
+export async function attemptDelivery(state, record) {
   return withDeliveryLock(record.id, async () => {
-    const ready = await checkDeliveryPrerequisites(state.settings);
-    if (!ready.ok) return ready;
     try {
+      const ready = await checkDeliveryPrerequisites(state.settings);
+      if (!ready.ok) throw new Error(ready.error);
       const delivery = await deliver(record, state.settings, state.projects);
       const updated = await mutateState((fresh) => {
         syncArchiveDelivery(fresh, record);
-        fresh.outbox = fresh.outbox.filter((item) => item.record.id !== record.id);
+        fresh.outbox = fresh.outbox.filter((item) => item.id !== record.id && item.record?.id !== record.id);
         return fresh;
       });
       return { ok: true, delivery, remaining: null };
@@ -371,7 +371,7 @@ async function attemptDelivery(state, record) {
         }
         return fresh;
       });
-      return { ok: false, error: message, retryState: policy.state };
+      return { ok: false, error: message, retryState: policy.state, queued: true };
     }
   });
 }

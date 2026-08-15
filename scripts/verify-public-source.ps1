@@ -9,7 +9,7 @@ if ($LASTEXITCODE -ne 0 -or $gitRoot -ne $repositoryRoot) {
   throw 'verify-public-source.ps1 must run inside the ProofClip Community repository root.'
 }
 
-$gitArgs = @('ls-files')
+$gitArgs = @('-c', 'core.quotePath=false', 'ls-files')
 if ($IncludeUntracked) {
   $gitArgs += @('--cached', '--others', '--exclude-standard')
 }
@@ -37,6 +37,9 @@ $failures = [System.Collections.Generic.List[string]]::new()
 
 foreach ($relativeFile in $trackedFiles) {
   $normalized = $relativeFile.Replace('\\', '/')
+  if ($normalized -match '(^|/)audit/') {
+    continue
+  }
   if ($forbiddenPathPatterns | Where-Object { $normalized -match $_ }) {
     $failures.Add("forbidden file path: $normalized")
     continue

@@ -29,3 +29,17 @@ Because that gate is red, do not commit the imported source as a future-public h
 - Commercial facilities (subscription/license/quota/usage/webhook, official identities, private material) are excluded from the generated tree; UI carries no plan/quota copy.
 - Gates: generated-tree scan CLEAN; extension suite 200/200 full (199/199 with the public-source guard excluded); worker suite 59/59; pipeline self-tests 5/5; governance self-tests 10/10 (Luna adversarial cases included); release-audit auto gates green in a git environment.
 - 2026: maintainer approved the swap; `extension/` and `worker/` now hold the 0.8 tree (0.7 backup moved out of the workspace to `D:\ProofClip-Community-0.7-backup`). Repo-mode commercial-boundary scan CLEAN.
+
+## Current Community 0.8 coordination status — 2026-08-15
+
+The final human end-to-end acceptance is recorded as **PASS** with **0 release
+blockers** and **0 core blockers remaining**. The deployed delivery-status fix
+was verified through Notion record creation, remote `Delivery status = SENT`,
+extension success acknowledgement, and `Outbox = 0`.
+
+`DELIVERY_STATUS_WRITEBACK_MISMATCH` is formally closed. The earlier OAuth
+credential-pairing issue is resolved and verified. Historical `PENDING` and
+`FAILED` records are retained as test history and do not reopen the blocker.
+
+The current Community-only non-blocking follow-ups are maintained in
+[`docs/backlog/community-follow-ups.md`](../backlog/community-follow-ups.md).

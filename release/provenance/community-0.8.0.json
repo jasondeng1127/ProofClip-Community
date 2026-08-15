@@ -2,20 +2,20 @@
   "edition": "community",
   "targetVersion": "0.8.0",
   "tool": "release/export-community.mjs",
-  "boundarySha256": "5ebcc9ed7fafce52b4e5298e1187b3ac81668ee5d5558c3f3831cae29f123c80",
+  "boundarySha256": "eac344aaf161af7807e4e994d9c282c07749b17028343bc04ddd361555fbc0b7",
   "upstream": {
     "name": "Commercial 0.8 source (private)",
     "branch": "codex/proofclip-v0.8.0",
     "worktree": "D:\\网络赚钱\\.worktrees\\proofclip-v0.8.0",
     "note": "Working-tree snapshot chosen by the maintainer (plan A). Resolve to a pinned tag before public release.",
     "pin": {
-      "commit": "9d9e96a2b1994b42aa3419bdfaadc4bd597d6382",
-      "fingerprint": "105b4da8f6939b0b6272f03d6549fdb3ad157b80360cab72807c61015d3dbfa4",
-      "pinnedAt": "2026-08-14",
-      "note": "Immutable upstream identity: HEAD of codex/proofclip-v0.8.0 (commit 'bind v0.8 release artifact and verification'). Export is fail-closed: it verifies HEAD + clean worktree via git when available, otherwise the content fingerprint."
+      "commit": "e8ea712f957e25013052a3e8a21458e8f420d74e",
+      "fingerprint": "186a48f754ae6be4f1a1b4d69e04bb516ba747f8f25f14e77ca612d309e6ab20",
+      "pinnedAt": "2026-08-15",
+      "note": "Immutable upstream identity: HEAD of codex/proofclip-v0.8.0 (OAuth, Outbox shared bug fix, and bounded regression assertion). Export is fail-closed: it verifies HEAD + clean worktree via git when available, otherwise the content fingerprint."
     }
   },
-  "fileCount": 116,
+  "fileCount": 120,
   "skippedCount": 364,
   "buildArtifacts": [
     {
@@ -37,7 +37,7 @@
     {
       "path": "extension/src/archive.js",
       "source": "upstream",
-      "sha256": "2a20e6598ab208211d283b7db9db86136c0692abc0ea5a418f7d32105fc1f40b"
+      "sha256": "5920c7a075da2bf9cb6b32482eb11d2c4f3ea16192b8136c5885cd9ed1190163"
     },
     {
       "path": "extension/src/assets/capture-page.png",
@@ -97,7 +97,7 @@
     {
       "path": "extension/src/background.js",
       "source": "overlay",
-      "sha256": "50f4182cd1aaafde5bb8d5913afaa633041e3af8600b43ccb6077ff519da8152"
+      "sha256": "0dd0895b746554ffcc522cd733433f3ad26d21bd6a91e95b08463980498913f3"
     },
     {
       "path": "extension/src/community-config.mjs",
@@ -117,7 +117,7 @@
     {
       "path": "extension/src/core/archive-bulk-send.mjs",
       "source": "upstream",
-      "sha256": "b14d2f70dcf4fc01f432e3d0d4f175932c7c0834ceb8981a0dfd4e992e0cbce3"
+      "sha256": "fcaae8fec6479cffdc5d483fa4942dae0521350cbda5c54a34c87896caae8e5b"
     },
     {
       "path": "extension/src/core/archive-dedup.mjs",
@@ -256,8 +256,8 @@
     },
     {
       "path": "extension/src/tests/archive-bulk-send.test.mjs",
-      "source": "upstream",
-      "sha256": "fa6eecfbb2dbfb8ac6864573592524c8fecfa2305471d3f2129eda081b23e74e"
+      "source": "overlay",
+      "sha256": "cc4145599ea33d9391091f404793c9612738daa4799774687127952dec06e1d5"
     },
     {
       "path": "extension/src/tests/archive-card-layout-wiring.test.mjs",
@@ -275,9 +275,14 @@
       "sha256": "84ec32edd03f6653acf271ea101337558cd578c637b827cb828800b174431e92"
     },
     {
+      "path": "extension/src/tests/archive-outbox-reconciliation.test.mjs",
+      "source": "overlay",
+      "sha256": "88b64a33880d92f2dd269fbd0792518fe9196d6d3fab1c551a44d182a4eb40ee"
+    },
+    {
       "path": "extension/src/tests/archive-page-wiring.test.mjs",
-      "source": "upstream",
-      "sha256": "c4eef2afd6d920f916b245a5746c0fa31f19924b8ff2a4dbc5fabdbaf5a14038"
+      "source": "overlay",
+      "sha256": "7233053acedefabe3b55cca6515a0b3e95666ce2a85d288448287e5019967de6"
     },
     {
       "path": "extension/src/tests/archive-query.test.mjs",
@@ -293,6 +298,11 @@
       "path": "extension/src/tests/archive-removal.test.mjs",
       "source": "upstream",
       "sha256": "903a49df979955c3d05f622ded2cdead5d59cdd58c195860548aae79e7bcaccf"
+    },
+    {
+      "path": "extension/src/tests/background-test-loader.mjs",
+      "source": "overlay",
+      "sha256": "5cd411d8b99cc37984f2fc7921c2f304e4ad26f6382fa308827ebb6e1eccee47"
     },
     {
       "path": "extension/src/tests/capture-feedback.test.mjs",
@@ -346,8 +356,8 @@
     },
     {
       "path": "extension/src/tests/direct-routing-wiring.test.mjs",
-      "source": "upstream",
-      "sha256": "91c89db95a5732e56b8e4e9d56e5b2b5ed2b905cfed84f2b33f48a14777a8518"
+      "source": "overlay",
+      "sha256": "dffe477d705f0277597d97461e2fafb0e0ecf0cb325f5b5b5a754535524e205d"
     },
     {
       "path": "extension/src/tests/direct-routing.test.mjs",
@@ -398,6 +408,11 @@
       "path": "extension/src/tests/notion-link.test.mjs",
       "source": "upstream",
       "sha256": "3c2e1ef2cd8c50100cbe5e8526c771671d20c293ddd084a18e3941daf42ef437"
+    },
+    {
+      "path": "extension/src/tests/outbox-recovery.test.mjs",
+      "source": "overlay",
+      "sha256": "e54c9ba227297c3a3257fa6207f8229d5581e502f9a6d45fb35c6825767b0b66"
     },
     {
       "path": "extension/src/tests/page-cleaner.test.mjs",
@@ -505,6 +520,11 @@
       "sha256": "ed458956cfc1b24b23c0e46e9cfbf23f50b0bdccbc1f3f686ed0c8b370bf24ee"
     },
     {
+      "path": "extension/src/tests/test-proofclip-api.mjs",
+      "source": "overlay",
+      "sha256": "a7aa36247ddca1c48074f15d65dc28f9b9a544a3d86b861e1f885acd1aa88f77"
+    },
+    {
       "path": "extension/src/tests/toast-actions-wiring.test.mjs",
       "source": "overlay",
       "sha256": "fb0dd7ad68f52634fc2cd3020aabadf01767c5f50ed5ed04ba5de2f9bd28e0ae"
@@ -536,13 +556,13 @@
     },
     {
       "path": "worker/src/notion-proxy.mjs",
-      "source": "upstream",
-      "sha256": "9f67f2bec1760748b14ee4fbfb174025ff75cfe281873e9974fb9c81e3c06bf8"
+      "source": "overlay",
+      "sha256": "2b528970a16ea2d2ae63dc4665248c3606f6e1ce5d7858d35e0cbd0cb220627a"
     },
     {
       "path": "worker/src/oauth.mjs",
-      "source": "upstream",
-      "sha256": "7bcc06cb74b56c06f8d01ccbf454e655d60b97994decc8531568ca61336f4c9a"
+      "source": "overlay",
+      "sha256": "889f6e310383e13e664fa29639ea0c293dabd352b145c653ab00a653479222bd"
     },
     {
       "path": "worker/src/rate-limit.mjs",
@@ -571,13 +591,13 @@
     },
     {
       "path": "worker/src/tests/notion-proxy.test.mjs",
-      "source": "upstream+transform",
-      "sha256": "956388af9f35e15891aa3fc111bb9ef898c29b7da95132ccb2ec33b180c294f5"
+      "source": "overlay",
+      "sha256": "0f03fd3f1705e253e9bcee2a3674d613af4ab3a555c9f0cc6a640731235c4a48"
     },
     {
       "path": "worker/src/tests/oauth-foundation.test.mjs",
-      "source": "upstream",
-      "sha256": "80cb120af938dea275bacd8b105faf7eea6ee10d2e3bce3cc34a2f3903435981"
+      "source": "overlay",
+      "sha256": "f5c2d367e90683972d6e0b289a228f7acb35d0c01f800e99f992b8a258714e24"
     },
     {
       "path": "worker/src/tests/rate-limit.test.mjs",
@@ -592,7 +612,7 @@
     {
       "path": "worker/src/tests/worker.test.mjs",
       "source": "overlay",
-      "sha256": "437e0e65f626889c0147bf0204605131ab97bb6b80d3b9cececab9f13b79e9c2"
+      "sha256": "b19b4c6a5c874a568cd61ce582e8f91d5d7a4601377c8bba3d02b844d4744678"
     },
     {
       "path": "worker/src/token-vault.mjs",
@@ -602,7 +622,7 @@
     {
       "path": "worker/src/worker.mjs",
       "source": "overlay",
-      "sha256": "77a7a2076561c64525750455c9f4b227aa1e1ccc71b03f60cd3a4fc6204f1b8d"
+      "sha256": "db2816756453138c412b9481e7de482d8074cf207275a8f20007c4cf886e8678"
     }
   ]
 }

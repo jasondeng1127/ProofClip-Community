@@ -177,7 +177,11 @@ test('callback rejects reused state without calling Notion', async () => {
 
 test('callback distinguishes a token-exchange failure without leaking provider details', async () => {
   const repository = memoryRepository();
-  const app = fixture(repository, async () => new Response(JSON.stringify({ error: 'secret provider detail' }), { status: 401 }));
+  const app = fixture(repository, async () => new Response(JSON.stringify({ error: 'invalid_client', error_description: 'invalid client' }), { status: 401 }));
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
   const start = await app.fetch(new Request('https://api.example/v1/auth/start', { method: 'POST', headers: { 'x-proofclip-install-id': 'proofclip_install_12345' } }));
   const state = new URL((await start.json()).authorizationUrl).searchParams.get('state');
   const response = await app.fetch(new Request(`https://api.example/v1/auth/notion/callback?code=temp-code&state=${state}`));
@@ -185,6 +189,18 @@ test('callback distinguishes a token-exchange failure without leaking provider d
   assert.equal(response.status, 502);
   assert.match(text, /could not exchange/);
   assert.equal(text.includes('secret provider detail'), false);
+  assert.deepEqual(warnings, [[
+    'ProofClip OAuth diagnostic',
+    {
+      failureStage: 'notion_token_exchange',
+      providerStatus: 401,
+      providerErrorCode: 'invalid_client',
+      providerMessage: 'invalid client'
+    }
+  ]]);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test('connection status and deletion use the hashed install identifier without retaining workspace metadata', async () => {

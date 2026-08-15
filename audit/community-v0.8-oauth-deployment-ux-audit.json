@@ -1,0 +1,53 @@
+{
+  "audit_type": "continuation_delta_investigation",
+  "title": "Community 0.8 OAuth + Deployment UX Audit",
+  "version": "0.8.0",
+  "workspace": "D:/ProofClip-Community",
+  "branch": "main",
+  "head_commit": "c09f5ccac038d29ffc13d3b4b25fdcba7e53c32d",
+  "upstream_commit": "e8ea712f957e25013052a3e8a21458e8f420d74e",
+  "release_tag": null,
+  "artifact_zip": "D:/ProofClip-Community/release/artifacts/proofclip-community-0.8.0-2026-08-14T14-01-33-042Z.zip",
+  "artifact_sha256": "04bfdc15ec78485286646cac702af9b935f4027f72eafc5ffc22f34fedf47ccc",
+  "current_local_bundle_sha256": "d960d6cfc19d0ea8239817ab6a16973eb78f5d86bccb1454e71d8a551a236dc1",
+  "git_clean": false,
+  "tests": {
+    "extension": "not_rerun_out_of_scope",
+    "worker": "passed_targeted_oauth_26_of_26",
+    "community_boundary": "not_rerun_out_of_scope",
+    "public_source": "not_rerun_out_of_scope",
+    "release_audit": "not_rerun_out_of_scope",
+    "commercial_outbox": "passed_25_of_25",
+    "community_outbox": "passed_25_of_25"
+  },
+  "oauth_root_cause": "partial",
+  "deployment_ux": "manual_self_host",
+  "doctor": "not_implemented",
+  "product_parity": "not_rerun_out_of_scope",
+  "commercial_boundary": "not_rerun_out_of_scope",
+  "self_host_boundary": "needs_review",
+  "upgrade": "not_verified",
+  "commercial_outbox": "verified_fixed_source_and_targeted_tests_only",
+  "blocker_candidates": [
+    "Observed real Notion OAuth flow cannot complete; provider error class and deployed identity are not captured."
+  ],
+  "major_candidates": [
+    "Current local reproducible Worker bundle differs from the staged artifact bundle and the remote deployment identity is unknown.",
+    "Fresh self-host deployment and OAuth/Data Source E2E are not verified; no Doctor exists."
+  ],
+  "unverified_items": [
+    "Cloudflare Worker deployed bundle SHA/commit",
+    "Cloudflare Worker logs and provider HTTP error body/status",
+    "NOTION_CLIENT_ID/NOTION_CLIENT_SECRET/NOTION_REDIRECT_URI/TOKEN_VAULT_KEY correctness",
+    "Notion registered callback URI exact match",
+    "Remote D1 schema and connection write",
+    "Allowed extension origin CORS success with actual extension ID",
+    "Fresh deployment rehearsal",
+    "0.7 to 0.8 upgrade and rollback rehearsal",
+    "Commercial browser/runtime rehearsal"
+  ],
+  "evidence_log": "D:/ProofClip-Community/audit/community-v0.8-oauth-deployment-ux-checks.txt",
+  "report": "D:/ProofClip-Community/audit/community-v0.8-oauth-deployment-ux-audit.md",
+  "release_state_changed": false,
+  "published": false
+}

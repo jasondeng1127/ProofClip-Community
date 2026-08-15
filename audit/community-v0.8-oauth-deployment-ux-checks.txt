@@ -1,0 +1,65 @@
+ProofClip Community 0.8 OAuth + Deployment UX delta evidence
+Date: 2026-08-15 Asia/Hong_Kong
+Workspace: D:\ProofClip-Community
+
+BASELINE
+branch=main
+head=c09f5ccac038d29ffc13d3b4b25fdcba7e53c32d
+upstream_branch=codex/proofclip-v0.8.0
+upstream_head=e8ea712f957e25013052a3e8a21458e8f420d74e
+
+LOCAL BUNDLE REPRODUCIBILITY
+Command: D:\node.js\node.exe --input-type=module (read-only in-memory reproduction of worker/scripts/bundle-worker.mjs)
+expected_sha256=D960D6CFC19D0EA8239817AB6A16973EB78F5D86BCCB1454E71D8A551A236DC1
+actual_sha256=D960D6CFC19D0EA8239817AB6A16973EB78F5D86BCCB1454E71D8A551A236DC1
+expected_bytes=35201
+actual_bytes=35201
+result=PASS
+
+LOCAL OAUTH TARGETED TESTS
+Command: D:\node.js\node.exe --test --test-reporter=spec worker/src/tests/oauth-foundation.test.mjs worker/src/tests/d1-repository.test.mjs worker/src/tests/worker.test.mjs --test-name-pattern '(privacy|start route|CORS|Origin|OAuth|connection|Notion routes|Data Source setup)'
+exit=0
+tests=26
+passed=26
+failed=0
+cancelled=0
+filtered_outside_pattern=not executed
+
+COMMERCIAL OUTBOX TARGETED TESTS
+Command: D:\node.js\node.exe --test --test-reporter=spec D:\网络赚钱\.worktrees\proofclip-v0.8.0\projects\chrome\P-notion-evidence-clipper\src\tests\outbox-recovery.test.mjs D:\网络赚钱\.worktrees\proofclip-v0.8.0\projects\chrome\P-notion-evidence-clipper\src\tests\archive-bulk-send.test.mjs D:\网络赚钱\.worktrees\proofclip-v0.8.0\projects\chrome\P-notion-evidence-clipper\src\tests\archive-page-wiring.test.mjs D:\网络赚钱\.worktrees\proofclip-v0.8.0\projects\chrome\P-notion-evidence-clipper\src\tests\direct-routing-wiring.test.mjs
+exit=0
+tests=25
+passed=25
+failed=0
+
+COMMUNITY OUTBOX TARGETED TESTS
+Command: D:\node.js\node.exe --test --test-reporter=spec extension/src/tests/outbox-recovery.test.mjs extension/src/tests/archive-bulk-send.test.mjs extension/src/tests/archive-page-wiring.test.mjs extension/src/tests/direct-routing-wiring.test.mjs
+exit=0
+tests=25
+passed=25
+failed=0
+
+REMOTE READ-ONLY PROBES
+Configured origin: https://proofclip-community-rc1-20260814.jasondeng1127.workers.dev
+GET /privacy: status=200, server=cloudflare, content-type=text/html; charset=utf-8, CF-Ray=a2b5aedecb9a42d2-EWR
+GET /v1/auth/notion/callback without code/state: status=400, body=Notion authorization was incomplete. You may close this window., CF-Ray=a2b5aeec2c596d50-EWR
+GET /v1/connection with Origin=https://unrelated.example: status=403, body=ProofClip requests must come from the configured extension.
+GET /v1/connection without Origin and without install id: status=400, body=A valid ProofClip install identifier is required.
+POST /v1/auth/start: NOT RUN; it would create a new OAuth state and was not needed for this delta.
+
+DEPLOYMENT TOOL DISCOVERY
+wrangler_available=False
+doctor_files=0
+result=No repository doctor/health/deploy orchestrator was found; no Cloudflare deploy or log command was run.
+
+RELEASE ARTIFACT COMPARISON
+artifact=D:\ProofClip-Community\release\artifacts\proofclip-community-0.8.0-2026-08-14T14-01-33-042Z.zip
+artifact_sha256=04BFDC15EC78485286646CAC702AF9B935F4027F72EAFC5FFC22F34FEDF47CCC
+artifact_recorded_bundle_sha256=AE8B507561AD98054992DD0C8AF8797B16EC04E23CAF8688225C7A56C7B67C77
+current_local_bundle_sha256=D960D6CFC19D0EA8239817AB6A16973EB78F5D86BCCB1454E71D8A551A236DC1
+result=Recorded staged artifact bundle differs from the current dirty-tree bundle; remote deployment identity remains unknown.
+
+USER-PROVIDED RUNTIME EVIDENCE
+Jason verified Community Alt+1/2/3 capture; shortcut investigation is closed.
+Jason verified prerequisite failure: Archive=FAILED, Outbox=3, batch summary count matches Outbox count.
+Jason observed Notion OAuth failure: Notion could not exchange the authorization.

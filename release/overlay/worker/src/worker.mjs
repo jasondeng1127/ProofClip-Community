@@ -67,7 +67,13 @@ export function createWorker({ repository, env, fetchImpl = fetch, now = () => D
     let token;
     try {
       token = await exchangeAuthorizationCode({ code, redirectUri: env.NOTION_REDIRECT_URI, clientId: env.NOTION_CLIENT_ID, clientSecret: env.NOTION_CLIENT_SECRET, fetchImpl });
-    } catch {
+    } catch (error) {
+      console.warn('ProofClip OAuth diagnostic', {
+        failureStage: error?.failureStage || 'notion_token_exchange',
+        providerStatus: error?.providerStatus ?? null,
+        providerErrorCode: error?.providerErrorCode ?? null,
+        providerMessage: error?.providerMessage ?? null
+      });
       return callbackPage('Notion could not exchange the authorization. Return to ProofClip and try again.', 502);
     }
     try {

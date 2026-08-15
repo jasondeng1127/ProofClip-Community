@@ -8,10 +8,10 @@
     "worktree": "D:\\网络赚钱\\.worktrees\\proofclip-v0.8.0",
     "note": "Working-tree snapshot chosen by the maintainer (plan A). Resolve to a pinned tag before public release.",
     "pin": {
-      "commit": "9d9e96a2b1994b42aa3419bdfaadc4bd597d6382",
-      "fingerprint": "105b4da8f6939b0b6272f03d6549fdb3ad157b80360cab72807c61015d3dbfa4",
-      "pinnedAt": "2026-08-14",
-      "note": "Immutable upstream identity: HEAD of codex/proofclip-v0.8.0 (commit 'bind v0.8 release artifact and verification'). Export is fail-closed: it verifies HEAD + clean worktree via git when available, otherwise the content fingerprint."
+      "commit": "e8ea712f957e25013052a3e8a21458e8f420d74e",
+      "fingerprint": "186a48f754ae6be4f1a1b4d69e04bb516ba747f8f25f14e77ca612d309e6ab20",
+      "pinnedAt": "2026-08-15",
+      "note": "Immutable upstream identity: HEAD of codex/proofclip-v0.8.0 (OAuth, Outbox shared bug fix, and bounded regression assertion). Export is fail-closed: it verifies HEAD + clean worktree via git when available, otherwise the content fingerprint."
     }
   },
   "roots": [

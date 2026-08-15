@@ -264,7 +264,11 @@ $('#sendFilteredToNotion').onclick = async () => {
   }
   try {
     await refresh();
-    const message = result.failed ? `Sent ${result.sent} of ${result.total} record(s). ${result.failed} failed record(s) are in Outbox.` : `Sent ${result.sent} record(s) to Notion.`;
+    const message = result.failed
+      ? result.queued
+        ? `Sent ${result.sent} of ${result.total} record(s). ${result.queued} failed record(s) are in Outbox.`
+        : `Sent ${result.sent} of ${result.total} record(s). ${result.failed} record(s) failed and were not queued for Outbox recovery.`
+      : `Sent ${result.sent} record(s) to Notion.`;
     setBatchDeliveryFeedback(message, Boolean(result.failed));
   } catch (error) {
     setBatchDeliveryFeedback(error?.message || 'Records were sent, but the archive could not refresh.', true);

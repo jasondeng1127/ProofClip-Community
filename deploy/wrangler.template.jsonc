@@ -1,7 +1,14 @@
 {
   "name": "<YOUR_WORKER_NAME>",
   "main": "dist/worker.mjs",
-  "compatibility_date": "2026-07-28",
+  "compatibility_date": "2026-08-14",
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true
+    }
+  },
   "d1_databases": [
     {
       "binding": "DB",
