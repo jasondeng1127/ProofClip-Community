@@ -8,4 +8,4 @@ The self-hosted design has no dependency on an Official ProofClip Worker: a depl
 
 Official ProofClip is a separate product line. Its domains, Cloudflare accounts, OAuth credentials, operations, release assets, and future product work are not part of this repository.
 
-See [MIGRATION.md](MIGRATION.md) for provenance, [docs/architecture.md](docs/architecture.md) for the self-hosted boundary, and [deploy/README.md](deploy/README.md) for the forthcoming deployment procedure.
+See [docs/architecture.md](docs/architecture.md) for the self-hosted boundary and [deploy/README.md](deploy/README.md) for the deployment procedure.

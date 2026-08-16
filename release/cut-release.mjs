@@ -21,7 +21,7 @@ const ARTIFACTS = join(HERE, 'artifacts');
 const RECORDS = join(HERE, 'records');
 
 const PACKAGE_ROOTS = ['extension', 'worker', 'deploy', 'docs', 'scripts'];
-const PACKAGE_FILES = ['LICENSE', 'README.md', 'MIGRATION.md', 'SECURITY.md', 'CONTRIBUTING.md', 'TRADEMARKS.md'];
+const PACKAGE_FILES = ['LICENSE', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'TRADEMARKS.md'];
 
 
 async function walkFiles(root) {
@@ -38,6 +38,25 @@ async function walkFiles(root) {
 }
 
 const KEY = (p) => String(p).split(/[\\/]/).join('/');
+
+function isPackageExcluded(relativePath, exclusions) {
+  const normalized = KEY(relativePath).replace(/^\.\//, '');
+  return exclusions.some((rule) => {
+    const normalizedRule = KEY(rule).replace(/^\.\//, '');
+    if (normalizedRule.endsWith('/')) return normalized.startsWith(normalizedRule);
+    return normalized === normalizedRule || normalized.startsWith(normalizedRule + '/');
+  });
+}
+
+async function copyTreeFiltered(sourceRoot, destinationRoot, repoRoot, exclusions) {
+  for (const file of await walkFiles(sourceRoot)) {
+    const relativeToRepo = KEY(relative(repoRoot, file));
+    if (isPackageExcluded(relativeToRepo, exclusions)) continue;
+    const destination = join(destinationRoot, relative(sourceRoot, file));
+    await mkdir(dirname(destination), { recursive: true });
+    await cp(file, destination);
+  }
+}
 
 export async function computeWorkspaceFingerprint(repoRoot = ROOT) {
   const entries = [];
@@ -82,6 +101,7 @@ function tryGitHead(repoRoot) {
 export async function cutRelease({ version, repoRoot = ROOT, outDir = ARTIFACTS, recordsDir = RECORDS, writeOutput = true, provenanceFile = CANONICAL_PROVENANCE } = {}) {
   const boundary = JSON.parse(await readFile(BOUNDARY, 'utf8'));
   const target = version || boundary.targetVersion;
+  const packageExclusions = boundary.packageExclusions || [];
   const findings = [];
 
   const scan = await verifyGeneratedTree({ treeDir: repoRoot, boundaryFile: BOUNDARY, requireProvenance: false });
@@ -113,7 +133,7 @@ export async function cutRelease({ version, repoRoot = ROOT, outDir = ARTIFACTS,
       await mkdir(staging, { recursive: true });
       for (const root of PACKAGE_ROOTS) {
         if (await stat(join(repoRoot, root)).then(() => true).catch(() => false)) {
-          await cp(join(repoRoot, root), join(staging, root), { recursive: true });
+          await copyTreeFiltered(join(repoRoot, root), join(staging, root), repoRoot, packageExclusions);
         }
       }
       for (const file of PACKAGE_FILES) {
@@ -179,6 +199,7 @@ export async function cutRelease({ version, repoRoot = ROOT, outDir = ARTIFACTS,
       provenanceMatch: { checked: match.checked, mismatches: match.mismatches, missing: match.missing, ok: match.ok }
     },
     gates: { repoScan: { ok: scan.ok, scannedFiles: scan.fileCount } },
+    packaging: { roots: PACKAGE_ROOTS, files: PACKAGE_FILES, exclusions: packageExclusions },
     build: { nodeVersion: process.version },
     rehearsals: { freshDeploy: 'NOT_RUN', upgrade07To08: 'NOT_RUN' },
     note: 'STAGED local cut. Promote to READY_FOR_RELEASE_REVIEW only after rehearsals pass and the final audit is green.'

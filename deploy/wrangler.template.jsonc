@@ -17,6 +17,8 @@
     }
   ],
   "vars": {
-    "PROOFCLIP_EXTENSION_ID": "<YOUR_EXTENSION_ID>"
+    "PROOFCLIP_EXTENSION_ID": "<YOUR_EXTENSION_ID>",
+    "NOTION_CLIENT_ID": "<YOUR_NOTION_CLIENT_ID>",
+    "NOTION_REDIRECT_URI": "https://<YOUR_WORKER_SUBDOMAIN>.workers.dev/v1/auth/notion/callback"
   }
 }

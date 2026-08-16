@@ -46,6 +46,13 @@ Truth model (frozen):
   frozen HEAD + ZIP sha, and intended for GitHub Release assets / CI release
   evidence. This avoids the record-modifies-HEAD loop.
 
+The ZIP packaging boundary is separate from the source boundary. The
+`packageExclusions` list in `edition-boundary.json` removes private migration
+records, acceptance/backlog/planning material, runtime probes, local Wrangler
+state, and generated Worker output. The release cutter copies the Worker
+bundle explicitly after applying those exclusions, so a local `worker/dist/`
+or `.wrangler/` directory cannot silently enter a candidate.
+
 Release order:
 ```text
 Source + canonical provenance
@@ -86,10 +93,9 @@ runs with the same inputs produce byte-identical trees.
 
 Product core follows upstream; self-host/distribution layer belongs to Community.
 Upstream-excluded material (commercial facilities, private deployment state)
-never enters the tree. Community-owned top-level material (docs/, deploy/,
-scripts/, release/, LICENSE, README, SECURITY, CONTRIBUTING, TRADEMARKS,
-MIGRATION, .github/) is produced by Community maintainers and is never touched
-by the export.
+never enters the tree. Community-owned top-level material is maintained in the
+repository, while only the public subset allowed by `packageExclusions` enters
+the distributable ZIP.
 
 ## Schema note (0.7 → 0.8 upgrade)
 

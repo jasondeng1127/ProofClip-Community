@@ -90,6 +90,19 @@
     ".gitignore",
     ".gitattributes"
   ],
+  "packageExclusions": [
+    "MIGRATION.md",
+    "deploy/.dev.vars",
+    "deploy/.dev.vars.example",
+    "docs/acceptance/",
+    "docs/backlog/",
+    "docs/superpowers/",
+    "docs/release-rc-runbook.md",
+    "scripts/agent-probes/",
+    "worker/.wrangler/",
+    "worker/dist/",
+    "worker/wrangler.jsonc"
+  ],
   "transforms": {
     "worker/src/tests/notion-proxy.test.mjs": [
       {
