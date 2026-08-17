@@ -1,7 +1,22 @@
 # ProofClip Community 0.8 — Final Acceptance Status
 
-Date: 2026-08-15  
+Date: 2026-08-17
 Scope: Community 0.8 only
+
+## Current authoritative freeze
+
+The 2026-08-17 clean manual fresh deployment and human E2E result is recorded
+in [`community-0.8-clean-manual-fresh-deploy-2026-08-17.md`](community-0.8-clean-manual-fresh-deploy-2026-08-17.md).
+It supersedes the earlier RC runtime details below for current release status.
+
+- Community 0.8 clean manual fresh deployment: **PASS**
+- Authoritative candidate E2E: **PASS**
+- OAuth, Data Source mapping, Selection, Region, and Body delivery: **PASS / SENT**
+- Notion record creation: **PASS**
+- Outbox: **0**
+- Release readiness: **PASS**
+- Final verdict: `COMMUNITY_0_8_AUTHORITATIVE_RELEASE_ACCEPTED`
+- Deployment UX gap: **OPEN / NON-BLOCKING**
 
 ## Coordination status
 

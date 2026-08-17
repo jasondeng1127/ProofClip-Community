@@ -39,6 +39,20 @@ successful bulk retry should clear the failed item, remove its Outbox entry,
 update the popup immediately, remain consistent after reload, and avoid
 duplicate sends.
 
+## TODO-4 — One-Command Self-Host Deployment Installer
+
+- Classification: `DEPLOYMENT_UX`
+- Priority: `FOLLOW-UP`
+- Release blocker: `NO`
+
+The clean manual fresh deployment is functionally accepted, but it still
+requires many manual setup steps across Wrangler, D1, configuration, secrets,
+schema, migration, bundle, deploy, origin wiring, and health checks. Design a
+single configuration entry point and `setup.ps1` flow that automates the
+repeatable setup while leaving only necessary third-party authorization and
+final human acceptance to the user. Do not reopen or modify Community 0.8 for
+this follow-up.
+
 ## Scope rule
 
 Do not reopen `DELIVERY_STATUS_WRITEBACK_MISMATCH` because of historical
