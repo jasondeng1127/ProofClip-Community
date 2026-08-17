@@ -13,9 +13,9 @@ The tool should stay out of the way when it is not needed and be reliable when i
 
 **ProofClip Community 0.8.0 is now available.**
 
-This release strengthens the capture-to-Notion workflow, self-hosted deployment, and delivery reliability while keeping ProofClip Community local-first and under the deployer's control.
+This release strengthens the capture-to-Notion workflow, content handling, mapping accuracy, and delivery reliability while keeping ProofClip Community local-first and under the deployer's control.
 
-### What's new
+### What's improved in v0.8.0
 
 - **Richer full-page capture** — improved structured extraction preserves more of the original reading context, including headings, paragraphs, lists, links, and supported images in their natural order.
 - **Better long-page handling** — strengthened long-page extraction and fallback behavior for more reliable capture of large documents and research material.
