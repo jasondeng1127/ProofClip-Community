@@ -4,6 +4,24 @@ Copyright (C) 2026 Jason. Licensed under [AGPL-3.0-only](LICENSE).
 
 ProofClip Community is an open-source, self-hosted research evidence workbench built around a simple idea: captured information is most useful when its source, context, and the reason it mattered stay together. It helps researchers preserve passages, figures, and full-page evidence while keeping provenance and later interpretation connected to the original reading context.
 
+## Latest release — v0.8.0
+
+**ProofClip Community 0.8.0 is now available.**
+
+This release strengthens the capture-to-Notion workflow, self-hosted deployment, and delivery reliability while keeping ProofClip Community local-first and under the deployer's control.
+
+### What's new
+
+- **Three capture modes** — save a text selection, image area, or full page with keyboard-first shortcuts.
+- **Local-first Archive** — capture first, then organize, search, annotate, and decide what should be sent to Notion.
+- **Improved Notion workflow** — OAuth connection, Data Source setup, and configurable field mapping for repeatable research workflows.
+- **More reliable delivery** — delivery status, Outbox recovery, resend support, and duplicate-delivery protection.
+- **Self-hosted Worker + D1** — operate your own Community backend and Notion OAuth integration.
+- **Privacy-focused delivery** — capture bodies and screenshots are not retained by the Worker after the requested delivery.
+- **Detailed self-hosting guide** — a verified deployment path covering Cloudflare Worker, D1, Notion OAuth, extension configuration, and first-run validation.
+
+**[View v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Download v0.8.0](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Deployment guide](deploy/README.md)**
+
 ## Choose the right path before you start
 
 Choose **Community** when you are comfortable operating your own Cloudflare Worker, D1 database, Notion OAuth integration, extension configuration, upgrades, and backups. It is the right path for researchers, labs, and technical teams that want a self-hosted, inspectable baseline and control of their own deployment.
