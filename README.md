@@ -48,7 +48,7 @@ Captures default to the local Archive. Keep them there for review, personal note
 
 ![ProofClip Community generic field-mapping controls](docs/assets/evidence.png)
 ![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/快捷键使用提示.png)
-![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/notion效果.png).
+![ProofClip Community capture panel with Selection, Image area, and Full page shortcuts](docs/assets/notion效果.png)
 
 ## Community edition vs Commercial edition
 
