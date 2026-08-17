@@ -3,6 +3,7 @@
 Copyright (C) 2026 Jason. Licensed under [AGPL-3.0-only](LICENSE).
 
 ProofClip Community is an open-source, self-hosted research evidence workbench built around a simple idea: captured information is most useful when its source, context, and the reason it mattered stay together. It helps researchers preserve passages, figures, and full-page evidence while keeping provenance and later interpretation connected to the original reading context.
+
 ProofClip is designed around the reading flow itself. Capturing evidence should feel like a small gesture, not a context switch: notice something worth keeping, capture it, and keep reading. Organization, mapping, and delivery should support that flow rather than interrupt it.
 This leads to a simple product philosophy: capture with as little friction as possible, preserve enough context to make the evidence useful later, and keep the path from reading to archive to Notion predictable and dependable. The tool should stay out of the way when it is not needed and be reliable when it is.
 
