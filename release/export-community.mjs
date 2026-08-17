@@ -37,6 +37,21 @@ export const defaultGit = {
   statusPorcelain(repoRoot) { try { return execFileSync('git', ['-C', repoRoot, 'status', '--porcelain'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString(); } catch { return null; } }
 };
 
+// The upstream worktree is an export input, not public artifact metadata. Keep
+// only the immutable source identity in PROVENANCE.json so local paths and
+// private workspace labels cannot affect the public output.
+export function publicUpstreamIdentity(upstream) {
+  const pin = upstream?.pin;
+  if (!pin?.commit || !pin?.fingerprint) throw new Error('upstream pin is required for public provenance.');
+  const publicPin = { commit: pin.commit, fingerprint: pin.fingerprint };
+  if (typeof pin.pinnedAt === 'string' && pin.pinnedAt) publicPin.pinnedAt = pin.pinnedAt;
+  return { pin: publicPin };
+}
+
+export function publicBoundaryIdentity(boundary) {
+  return { ...boundary, upstream: publicUpstreamIdentity(boundary.upstream) };
+}
+
 // Fingerprint of the pinned upstream product inputs (exclusions applied).
 export async function computeUpstreamFingerprint(upstreamRoot, boundary) {
   const entries = [];
@@ -129,12 +144,13 @@ export async function createCommunityTree({ upstreamRoot, boundaryFile = DEFAULT
   const entries = [...plan.values()].sort((a, b) => a.output.localeCompare(b.output));
 
   const files = entries.map(({ output, source, content }) => ({ path: output, source, sha256: sha256Text(content) }));
+  const publicUpstream = publicUpstreamIdentity(boundary.upstream);
   const provenance = {
     edition: boundary.edition,
     targetVersion: boundary.targetVersion,
     tool: 'release/export-community.mjs',
-    boundarySha256: sha256Text(JSON.stringify(boundary)),
-    upstream: boundary.upstream,
+    boundarySha256: sha256Text(JSON.stringify(publicBoundaryIdentity(boundary))),
+    upstream: publicUpstream,
     fileCount: files.length,
     skippedCount: skipped.length,
     buildArtifacts: [

@@ -5,23 +5,21 @@ Scope: Community 0.8 authoritative candidate and clean manual fresh deployment
 
 ## Authoritative candidate
 
-- Candidate: `D:\ProofClip-Community\release\artifacts\proofclip-community-0.8.0-2026-08-16T04-24-46-741Z.zip`
+- Candidate: `proofclip-community-0.8.0-2026-08-16T04-24-46-741Z.zip`
 - SHA-256: `58eaaf0f57dfd5956a25729fc1f35d8b4e278d0e4a366d227166727877dbde27`
 - Source commit: `300f2b2fe7e90d7a60da656f146b900f11cdecb5`
-- Manual extraction: `D:\ProofClip-Community-0.8.0-final-candidate-20260816`
-- Extension load directory: `D:\ProofClip-Community-0.8.0-final-candidate-20260816\extension\src`
-- Extension ID: `lhdjnmamjiblmmjmeldiddkecpbbkdjb`
+- Manual extraction: the official release ZIP's extracted directory
+- Extension load directory: `<release-root>\extension\src`
 
 ## Clean manual fresh deployment
 
 The following deployment evidence was supplied from Jason's human acceptance
 run on 2026-08-17:
 
-- Worker: `proofclip-community-08`
-- Worker URL: `https://proofclip-community-08.jasondeng1127.workers.dev`
-- Worker version ID: `7b0f3493-6b2b-440e-a15c-95b74ed4358c`
-- D1: `proofclip-community-08`
-- D1 ID: `8e23c3e5-b864-422c-8e41-3903022f4e2c`
+- Worker: deployer-owned fresh Community Worker
+- D1: deployer-owned fresh Community D1 database
+- Runtime identifiers and account-specific origins: verified during human
+  acceptance and intentionally omitted from public documentation
 - Candidate hash, fresh D1, schema, privacy migration, bundle, deploy, D1
   binding, extension ID binding, Notion client ID binding, redirect URI
   binding, `/privacy` HTTP 200, authoritative origin, and clean extension

@@ -81,6 +81,34 @@ test('pipeline is deterministic: two runs produce identical trees and provenance
   await rm(root, { recursive: true, force: true });
 });
 
+test('public provenance excludes private upstream workspace identity and absolute paths', async () => {
+  const { root, upstream, overlayDir, outDir, boundary } = await fixture();
+  const privateBoundary = JSON.parse(await readFile(boundary, 'utf8'));
+  privateBoundary.upstream = {
+    name: 'Commercial 0.8 source (private)',
+    branch: 'codex/private-release-source',
+    worktree: 'D:\\private\\Commercial\\proofclip-0.8',
+    note: 'C:\\Users\\jason\\AppData\\Local\\Temp\\rehearsal',
+    pin: privateBoundary.upstream.pin
+  };
+  await writeFile(boundary, JSON.stringify(privateBoundary), 'utf8');
+  const { provenance } = await createCommunityTree({ upstreamRoot: upstream, boundaryFile: boundary, overlayDir, outDir, gitImpl: { revParse: async () => 'pinned-commit', statusPorcelain: async () => '' } });
+  const serialized = JSON.stringify(provenance);
+
+  assert.deepEqual(provenance.upstream, {
+    pin: { commit: 'pinned-commit', fingerprint: 'pinned-fp' }
+  });
+  assert.doesNotMatch(serialized, /worktree|Commercial 0\.8 source|private-release-source|rehearsal|[A-Z]:\\|\\\\|Temp|AppData/i);
+  assert.doesNotMatch(serialized, new RegExp(upstream.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+  const alternateBoundary = join(root, 'boundary-alt.json');
+  privateBoundary.upstream.worktree = 'C:\\another\\private\\source';
+  await writeFile(alternateBoundary, JSON.stringify(privateBoundary), 'utf8');
+  const alternate = await createCommunityTree({ upstreamRoot: upstream, boundaryFile: alternateBoundary, overlayDir, outDir: join(root, 'out-alt'), gitImpl: { revParse: async () => 'pinned-commit', statusPorcelain: async () => '' } });
+  assert.equal(alternate.provenance.boundarySha256, provenance.boundarySha256, 'local upstream paths must not affect public boundary identity');
+  await rm(root, { recursive: true, force: true });
+});
+
 test('scanner rejects commercial tokens, forbidden paths, and provenance mismatch', async () => {
   const { root, upstream, overlayDir, outDir, boundary } = await fixture();
   await createCommunityTree({ upstreamRoot: upstream, boundaryFile: boundary, overlayDir, outDir, gitImpl: { revParse: async () => 'pinned-commit', statusPorcelain: async () => '' } });

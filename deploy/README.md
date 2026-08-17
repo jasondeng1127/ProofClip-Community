@@ -1,113 +1,392 @@
-# Self-hosted deployment
+# ProofClip Community 0.8 self-hosted deployment guide
 
-This guide prepares a personal Cloudflare Worker and D1 database. It does not use an Official ProofClip service.
+This guide deploys ProofClip Community as a self-hosted Chrome extension
+paired with a Cloudflare Worker and D1 database. You own the Cloudflare
+account, D1 database, Notion OAuth integration, Worker secrets, and extension
+configuration.
+
+This is a detailed self-hosting workflow, not a one-click or zero-config
+installer.
 
 ## Prerequisites
 
+You need:
+
 - A Cloudflare account with Workers and D1 enabled.
-- A Notion integration created in the deployer's own Notion account.
-- Node.js and Wrangler installed locally.
-- The unpacked Community extension, which receives the deployer's final extension ID after it is loaded.
+- A Notion account and workspace where you can create a public OAuth
+  integration and authorize a Data Source.
+- Chrome or another compatible Chromium browser.
+- Node.js and npm.
+- Git, if you are deploying from a repository checkout.
 
-## Canonical setup contract
+ProofClip Community uses **Cloudflare Worker + D1** for its backend. Cloudflare
+Pages or a static-asset upload is not the backend deployment path.
 
-Use the following sequence for the extracted release candidate. The `WHERE`,
-`ACTION`, `VALUE SOURCE`, and `EXPECTED` columns are part of the deployment
-contract; do not substitute a development, Temp, rehearsal, or historical RC
-tree.
+## Release package and directories
 
-| Step | WHERE | ACTION | VALUE SOURCE | EXPECTED |
-| --- | --- | --- | --- | --- |
-| 0. Extract | Windows Explorer | Extract the candidate, then use `<candidate-root>/extension/src` as the unpacked extension directory. | The single candidate ZIP | Chrome loads the extension from `extension/src` itself, not the repository root, a Temp tree, a rehearsal tree, or an old RC tree. |
-| 1. Worker template | `<candidate-root>/deploy/wrangler.template.jsonc` → `<candidate-root>/worker/wrangler.jsonc` | Copy the template and replace placeholders only with this deployment's values. | The deployer's Cloudflare account and the deployer's own Notion integration | `DB` is the D1 binding; no live secret is committed. |
-| 2. D1 | Cloudflare D1 and `worker/wrangler.jsonc` | Create the D1 database, then copy its returned ID into the existing `DB` binding. | `wrangler d1 create` output | `DB` points to the intended database before Worker deployment. |
-| 3. Notion integration | Notion Developer Dashboard | Create or select one **public OAuth integration** and register the exact Worker callback URL. | The deployer's own Notion account and Worker HTTPS origin | The integration is public and the callback matches `NOTION_REDIRECT_URI` byte-for-byte. |
-| 4. Client credentials | `worker/wrangler.jsonc` and Worker secrets | Put the client ID in `NOTION_CLIENT_ID`; put the client secret in `NOTION_CLIENT_SECRET`. | Both values must come from the same Notion integration | The ID/secret pair belongs to one integration; never copy one from Commercial, another Community environment, or a different integration. |
-| 5. Credential hygiene | Notion Dashboard copy operation and Wrangler input | Paste exact credential text; remove accidental surrounding spaces/newlines and do not use smart quotes, full-width characters, or other Unicode substitutions. | The integration's displayed ASCII values | The stored input is the exact provider value and Basic Auth encoding can complete without character errors. |
-| 6. Vault key | Worker secret `TOKEN_VAULT_KEY` | Generate 32 cryptographically secure random bytes, Base64-encode them, and store only the Base64 value as a secret. | A cryptographic random generator, never a human password | Decoding the stored Base64 value yields exactly 32 bytes; the value is not in source or extension storage. |
-| 7. Extension identity | Chrome → Extensions → Load unpacked → `<candidate-root>/extension/src` | Load the exact candidate directory and copy the generated extension ID into `PROOFCLIP_EXTENSION_ID`. | Chrome's ID for this loaded unpacked directory | Worker CORS/API checks accept this exact ID after deployment. |
-| 8. Worker config | `<candidate-root>/worker/wrangler.jsonc` | Keep `compatibility_date` at `2026-08-14`, `preview_urls` at `false`, and `observability.enabled` plus `observability.logs.enabled` at `true`. | The checked-in template | The deployed Worker uses the documented compatibility and logging settings. |
-| 9. Build and deploy | `<candidate-root>/worker` | Run the bundle command, execute the schema and privacy migration, then deploy the Worker. | The candidate's `worker/src`, `worker/migrations`, and Wrangler config | The Worker is deployed only after `DB`, extension ID, OAuth variables, and secrets are configured. |
-| 10. Extension origin | `<candidate-root>/extension/src/community-config.mjs` | Set `COMMUNITY_API_ORIGIN` to the deployed HTTPS Worker origin without a trailing slash, then reload the same extension. | The just-completed Worker deployment | `/privacy` returns HTTP 200 and the extension reaches the deployer's Worker. |
-| 11. Product flow | ProofClip → Connect → Data Source → Capture → Archive | Complete Notion OAuth, select a Data Source, save a capture, and explicitly send it. | The deployer's Notion integration and Data Source | A Notion record is created with `Delivery status = SENT`, and Outbox is `0`. |
+Download the official `ProofClip Community 0.8.0` release ZIP and extract it
+into a directory you control. The extracted package contains:
 
-## 1. Create local Worker configuration
+- `extension/src` — the unpacked Chrome extension.
+- `worker` — Worker source, migrations, and the bundling script.
+- `deploy` — the Wrangler configuration template and this guide.
 
-From the repository root, copy `deploy/wrangler.template.jsonc` to
-`worker/wrangler.jsonc`. Replace every angle-bracket placeholder with values
-from the deployer's own Cloudflare account. The local filename is ignored by
-Git and must never be committed.
+In Chrome, use **Load unpacked** with `extension/src` itself. Do not load the
+ZIP, the package root, `worker`, `deploy`, an RC directory, a test directory,
+or an older extracted candidate.
 
-Create the D1 database before filling the template:
+## 1. Install and verify Wrangler
+
+The bare `wrangler` command may not be available on a new machine. From the
+repository or extracted package directory, install a local Wrangler if needed:
+
+```powershell
+npm install -D wrangler@latest
+```
+
+Prefer the local executable through `npx` for all subsequent commands:
+
+```powershell
+npx wrangler --version
+```
+
+If npm reports that package install scripts need approval, run:
+
+```powershell
+npm approve-scripts
+```
+
+Approve only the packages shown by npm that are required by Wrangler, such as
+`esbuild` or `workerd`, then rerun the install and verify `npx wrangler
+--version`.
+
+Authenticate Wrangler with the Cloudflare account that should own the new
+Worker and D1 database. Do not paste Cloudflare or Notion credentials into
+this repository.
+
+## 2. Load the extension and obtain its ID
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Choose **Load unpacked**.
+4. Select the extracted `extension/src` directory.
+5. Copy the generated extension ID.
+
+The ID is used only as the `PROOFCLIP_EXTENSION_ID` Worker variable. If you
+load a different unpacked directory later, its ID may differ; update the
+Worker variable and redeploy before using that extension.
+
+## 3. Create a dedicated D1 database
+
+From the `worker` directory, create a new database:
 
 ```powershell
 cd worker
-wrangler d1 create <YOUR_D1_DATABASE_NAME>
+npx wrangler d1 create <YOUR_D1_DATABASE_NAME>
 ```
 
-Copy the returned database ID into `worker/wrangler.jsonc`.
+Record both values returned by Wrangler:
 
-Keep the D1 binding name exactly `DB`. The Worker source and migrations use
-that binding.
+- `database_name` — the exact D1 name.
+- `database_id` — the D1 UUID.
 
-## 2. Build and initialize D1
+Use a new, dedicated database for this deployment. Do not reuse a Commercial,
+RC, rehearsal, or unrelated test database.
+
+## 4. Create the local Worker configuration
+
+Copy the authoritative template:
 
 ```powershell
-cd worker
-node scripts/bundle-worker.mjs
-wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file src/schema.sql --remote
-wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260813_privacy_nonretention.sql --remote
+Copy-Item .\..\deploy\wrangler.template.jsonc .\wrangler.jsonc
 ```
 
-## 3. Configure secrets and Notion OAuth
+Edit `worker/wrangler.jsonc` and replace every placeholder with this
+deployment's value. The template is the source of the configuration contract.
 
-Create or open a **public OAuth integration** in the deployer's own Notion
-account. Copy the client ID and client secret from that same integration; do
-not pair a client ID from one integration with a secret from another. Add this
-exact callback URL to that integration:
+Incorrect:
+
+```json
+"name": "<proofclip-community-08>"
+```
+
+Correct:
+
+```json
+"name": "proofclip-community-08"
+```
+
+`<YOUR_XXX>` means the entire placeholder, including `<` and `>`, must be
+replaced. Required non-secret values are:
+
+- Worker `name`.
+- D1 `database_name`.
+- D1 `database_id`.
+- `PROOFCLIP_EXTENSION_ID`.
+- `NOTION_CLIENT_ID`.
+- `NOTION_REDIRECT_URI`.
+
+Keep the D1 binding exactly:
+
+```json
+"binding": "DB"
+```
+
+Do not rename `DB`. The Worker source and migrations use that binding.
+
+Keep the template's `compatibility_date`, preview setting, and observability
+settings unless you have a documented reason to change them. Do not put a
+Client Secret, token-vault key, or any other secret in `wrangler.jsonc`.
+
+## 5. Create the Notion OAuth integration
+
+In the Notion Developer Dashboard, create or select one **public OAuth
+integration** owned by you. Obtain its:
+
+- Client ID — an identifier used in the public authorization request.
+- Client Secret — a sensitive credential used only by the Worker.
+
+Client ID and Client Secret are different values and must come from the same
+integration. Never copy a Client Secret from Commercial, another Community
+deployment, an RC/rehearsal environment, or a different integration.
+
+Register this callback URL, replacing each placeholder with your own Worker
+name and Cloudflare Workers account subdomain:
 
 ```text
-https://<YOUR_WORKER_SUBDOMAIN>.workers.dev/v1/auth/notion/callback
+https://<WORKER_NAME>.<ACCOUNT_WORKERS_DEV_SUBDOMAIN>.workers.dev/v1/auth/notion/callback
 ```
 
-Set the same URL as `NOTION_REDIRECT_URI` in `worker/wrangler.jsonc`, together
-with the matching `NOTION_CLIENT_ID`. Store only the following two values as
-Worker secrets:
+Set the identical URL as `NOTION_REDIRECT_URI`. The Notion Dashboard value and
+the Worker value must match exactly, including scheme, hostname, path, and
+case. Do not confuse the Client Secret with the Worker name, workers.dev
+account subdomain, or redirect URI.
+
+The Client Secret must never be committed to Git, written into public
+documentation, placed in `wrangler.jsonc`, posted to a public issue, included
+in a screenshot, or shared in public chat/logs. If it is exposed, rotate it in
+the Notion Dashboard before continuing.
+
+## 6. Configure Worker secrets
+
+From the `worker` directory, enter the Client Secret directly into Wrangler's
+secure prompt:
 
 ```powershell
-wrangler secret put NOTION_CLIENT_SECRET
-wrangler secret put TOKEN_VAULT_KEY
+npx wrangler secret put NOTION_CLIENT_SECRET
 ```
 
-`TOKEN_VAULT_KEY` must be a fresh base64-encoded 32-byte key. It is not an extension setting and must never be copied into source code.
+Do not echo or save the value in a file.
 
-## 4. Configure the extension ID and API origin
+`TOKEN_VAULT_KEY` must be a cryptographically secure random value whose Base64
+decoding produces exactly 32 bytes. This is a Worker secret, not an extension
+setting and not a human password.
 
-In Chrome, choose **Load unpacked** and select the `extension/src` directory
-itself (not the repository root). Copy the generated 32-character extension
-ID into `PROOFCLIP_EXTENSION_ID` in `worker/wrangler.jsonc`. Set
-`NOTION_CLIENT_ID` and `NOTION_REDIRECT_URI` there as well. The callback must
-be the same URL registered in the Notion integration.
-
-Build and deploy from the repository's `worker` directory:
+The following PowerShell example generates the value in memory and pipes it to
+Wrangler without intentionally printing it:
 
 ```powershell
-cd worker
+$vaultBytes = [byte[]]::new(32)
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($vaultBytes)
+$vaultKey = [Convert]::ToBase64String($vaultBytes)
+try {
+  $vaultKey | npx wrangler secret put TOKEN_VAULT_KEY
+} finally {
+  Remove-Variable vaultBytes, vaultKey -ErrorAction SilentlyContinue
+}
+```
+
+If your Wrangler version requires an interactive prompt instead, paste the
+generated Base64 value only into that prompt and clear the value from any
+clipboard or temporary notes afterward.
+
+## 7. Initialize the D1 database
+
+From the `worker` directory, apply the Community schema and the privacy
+non-retention migration to the remote D1 database:
+
+```powershell
+npx wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file src/schema.sql --remote
+npx wrangler d1 execute <YOUR_D1_DATABASE_NAME> --file migrations/20260813_privacy_nonretention.sql --remote
+```
+
+Use the `worker/src/schema.sql` and
+`worker/migrations/20260813_privacy_nonretention.sql` files from the official
+release package. Do not use old RC, rehearsal, backup, or historical package
+paths.
+
+## 8. Bundle and deploy the Worker
+
+Build the Worker bundle from the package's `worker` directory:
+
+```powershell
 node scripts/bundle-worker.mjs
-wrangler deploy
+npx wrangler deploy
 ```
 
-Edit `extension/src/community-config.mjs` so `COMMUNITY_API_ORIGIN` equals the
-deployed HTTPS Worker origin without a trailing slash, then reload the
-extension. Do not use the placeholder value. If the extension is loaded from
-a different unpacked directory later, update `PROOFCLIP_EXTENSION_ID` and
-redeploy before using it.
+The deploy output contains the actual HTTPS Worker origin:
 
-## 5. Verify the deployment
+```text
+https://<WORKER_NAME>.<ACCOUNT_WORKERS_DEV_SUBDOMAIN>.workers.dev
+```
 
-Open the extension, start the Notion connection flow, approve the deployer's
-own Notion integration, select a Data Source, save one local capture, and
-explicitly send it to Notion. Confirm `/privacy` opens and the extension shows
-the connected state. A failure must be investigated in the deployer's Worker
-logs; do not send tokens, authorization codes, secrets, or screenshots in a
-public issue.
+Use the origin returned for this deployment. Do not use a URL from an RC,
+rehearsal, Commercial, or older test Worker.
+
+## 9. Point the extension at the deployed Worker
+
+Edit `extension/src/community-config.mjs` and set `COMMUNITY_API_ORIGIN` to
+the deployed HTTPS origin without a trailing slash:
+
+```js
+export const COMMUNITY_API_ORIGIN = 'https://<YOUR_WORKER_ORIGIN>';
+```
+
+Do not leave `https://replace-me.invalid` in the loaded extension. After
+saving the file, return to `chrome://extensions` and click **Reload** for the
+same unpacked extension directory.
+
+## 10. Health check
+
+Open the deployed privacy endpoint:
+
+```text
+https://<YOUR_WORKER_ORIGIN>/privacy
+```
+
+It must return HTTP 200. The response should describe the self-hosted flow and
+the non-retention boundary without exposing credentials or private account
+configuration.
+
+## 11. Connect Notion and configure the Data Source
+
+In ProofClip:
+
+1. Open **Settings**.
+2. Choose **Connect Notion**.
+3. Authorize the public OAuth integration in Notion.
+4. Confirm that the extension shows **Notion connected.**
+5. Select the intended Notion Data Source.
+6. Choose **Set up ProofClip**.
+7. Review and save **Field Mapping**.
+
+The selected Data Source must be accessible to the integration. Do not paste a
+Notion token into the extension; the OAuth material is held by your Worker
+and D1 using the token-vault contract.
+
+## 12. Final deployment acceptance
+
+Run at least one real end-to-end capture after setup. A complete acceptance
+should preferably cover:
+
+- **Selection** capture (`Alt+1`).
+- **Image area / Region** capture (`Alt+2`).
+- **Body / Full page** capture (`Alt+3`).
+
+For each mode, verify as applicable:
+
+- A Notion record is created.
+- The source URL and captured time are present.
+- Delivery status is `SENT`.
+- The extension reports success.
+- Outbox is `0` after successful delivery.
+
+The extension also supports a local Archive, search and filters, projects,
+tags, notes, explicit Archive sends, and retryable failed deliveries. A
+successful direct delivery is not silently added to the local Archive.
+
+## Troubleshooting
+
+### `wrangler` is not recognized
+
+Use the local installation flow and `npx wrangler ...` rather than assuming a
+global Wrangler installation:
+
+```powershell
+npm install -D wrangler@latest
+npx wrangler --version
+```
+
+### npm asks for install-script approval
+
+Run `npm approve-scripts`, approve only the required Wrangler dependencies
+shown by npm, then rerun the install. Do not approve unrelated packages.
+
+### Cloudflare Pages was uploaded
+
+Pages/static upload is not the Community backend deployment path. Community
+requires a Worker with a bound D1 database; deploy from `worker` with
+`npx wrangler deploy`.
+
+### D1 binding errors
+
+The binding name must remain `DB`. A Wrangler-suggested binding name does not
+override the Community contract. Confirm `binding: "DB"` and the intended
+database name and ID in `worker/wrangler.jsonc`.
+
+### Literal `<YOUR_XXX>` values remain
+
+Replace the entire placeholder, including angle brackets. For example, use
+`"name": "my-worker"`, not `"name": "<my-worker>"`.
+
+### The Extension ID is rejected
+
+Open `chrome://extensions`, inspect the ID for the exact loaded
+`extension/src` directory, set it as `PROOFCLIP_EXTENSION_ID`, and redeploy.
+Do not use an ID from another extracted directory.
+
+### Client ID and Client Secret are confused
+
+The Client ID is a public identifier used in authorization; the Client Secret
+is sensitive and is entered only with `npx wrangler secret put
+NOTION_CLIENT_SECRET`. Both must come from the same Notion integration.
+
+### workers.dev subdomain and Client Secret are confused
+
+The workers.dev subdomain is part of the Worker hostname and callback URL. It
+is not a Notion credential. The Client Secret belongs only in the Worker
+secret store.
+
+### Redirect URI mismatch
+
+Compare the Notion integration callback and `NOTION_REDIRECT_URI` character by
+character. Use the actual deployed Worker hostname, the
+`/v1/auth/notion/callback` path, HTTPS, and no trailing slash or wildcard.
+
+### TOKEN_VAULT_KEY fails validation
+
+Generate fresh cryptographic random bytes. The Base64-decoded value must be
+exactly 32 bytes. Do not use a password, a short random string, a hex string
+without the required decoding contract, or a value copied from another
+deployment.
+
+### `/privacy` does not return HTTP 200
+
+Confirm the Worker deployed successfully, the URL is the actual Worker origin,
+and you are not opening a Pages URL or an old RC/rehearsal hostname. Inspect
+your own Wrangler output and Worker logs without sharing secrets or tokens.
+
+### OAuth callback fails
+
+First confirm the Worker origin, Client ID, Client Secret pairing, and exact
+redirect URI. Do not paste authorization codes, tokens, or secrets into an
+issue or public chat. Recheck that the integration is public OAuth and that
+the authorized Data Source is shared with it.
+
+### The extension still uses `replace-me.invalid`
+
+Edit `extension/src/community-config.mjs` in the exact directory loaded by
+Chrome, set the real deployed HTTPS origin without a trailing slash, save, and
+click **Reload** on that extension. A different loaded directory can have a
+different Extension ID and must be configured separately.
+
+## Privacy and credential hygiene
+
+ProofClip captures only after an explicit user action. Local evidence remains
+in the browser until the user explicitly sends it. The extension does not
+store a Notion OAuth token. The deployer-owned Worker and D1 store the
+encrypted OAuth material required for delivery, while the Worker does not
+persist capture bodies, selections, screenshots, or page URLs.
+
+Never publish Client Secrets, token-vault keys, OAuth codes, access tokens,
+refresh tokens, or private account identifiers.

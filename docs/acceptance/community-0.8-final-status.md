@@ -61,9 +61,9 @@ Verification reported for the fix:
 - Extension delivery and Outbox targeted tests: `12/12 PASS`
 - `git diff --check`: `PASS`
 - Final human E2E: `PASS`
-- Worker: `proofclip-community-rc1-20260814`
-- Version ID: `7c1d7ce1-291c-4326-8422-6d4b6fd37f9f`
-- Traffic: `100% active`
+- Runtime identity: verified during the historical acceptance run; the
+  account-specific Worker name and version are intentionally omitted from
+  public documentation.
 
 ### OAuth status
 
