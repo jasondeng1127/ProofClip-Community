@@ -17,13 +17,12 @@ This release strengthens the capture-to-Notion workflow, self-hosted deployment,
 
 ### What's new
 
-- **Three capture modes** — save a text selection, image area, or full page with keyboard-first shortcuts.
-- **Local-first Archive** — capture first, then organize, search, annotate, and decide what should be sent to Notion.
-- **Improved Notion workflow** — OAuth connection, Data Source setup, and configurable field mapping for repeatable research workflows.
-- **More reliable delivery** — delivery status, Outbox recovery, resend support, and duplicate-delivery protection.
-- **Self-hosted Worker + D1** — operate your own Community backend and Notion OAuth integration.
-- **Privacy-focused delivery** — capture bodies and screenshots are not retained by the Worker after the requested delivery.
-- **Detailed self-hosting guide** — a verified deployment path covering Cloudflare Worker, D1, Notion OAuth, extension configuration, and first-run validation.
+- **Richer full-page capture** — improved structured extraction preserves more of the original reading context, including headings, paragraphs, lists, links, and supported images in their natural order.
+- **Better long-page handling** — strengthened long-page extraction and fallback behavior for more reliable capture of large documents and research material.
+- **More accurate Notion mapping** — improved mapping behavior makes repeated delivery into configured Notion Data Sources more consistent and predictable.
+- **Cleaner Notion output** — refined content processing and formatting produce more readable evidence records after delivery.
+- **More resilient capture and delivery** — strengthened local processing, delivery recovery, resend behavior, and duplicate-delivery protection across the capture-to-Notion path.
+- **Stronger privacy safeguards** — the self-hosted Worker is designed not to retain capture bodies or screenshots after the requested delivery.
 
 **[View v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Download v0.8.0](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Deployment guide](deploy/README.md)**
 
