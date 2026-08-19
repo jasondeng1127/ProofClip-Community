@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "editionModel": "one-version-lag",
+  "commercialBaseline": {
+    "version": "0.8",
+    "tag": null,
+    "commit": "e8ea712f957e25013052a3e8a21458e8f420d74e",
+    "note": "Frozen Commercial 0.8 baseline (codex/proofclip-v0.8.0 HEAD at pin time 2026-08-15). Baseline must equal edition-boundary.json upstream.pin.commit; drift stops the release."
+  },
+  "capabilities": [
+    {
+      "id": "capture.selection",
+      "name": "Selection capture",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.region",
+      "name": "Region image capture",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/region-capture.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.fullpage.body",
+      "name": "Full page body capture (no truncation)",
+      "introducedVersion": "0.8",
+      "sourceScope": "extension/src/core/record.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.fullpage.structured",
+      "name": "Structured content blocks (headings/paragraphs/lists/quotes/code)",
+      "introducedVersion": "0.8",
+      "sourceScope": "extension/src/core/page-structure.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.links.images",
+      "name": "Safe links and obtainable images in blocks",
+      "introducedVersion": "0.8",
+      "sourceScope": "extension/src/core/page-structure.mjs,worker/src/notion-proxy.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.adapters.wiki-cbp",
+      "name": "Wikipedia / CBP site-readable adapters",
+      "introducedVersion": "0.8",
+      "sourceScope": "extension/src/core/site-readable-adapters.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.duplicate-warning",
+      "name": "Duplicate capture warning",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/archive-dedup.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "capture.context-menu",
+      "name": "Context-menu selection capture",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/background.js",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.local",
+      "name": "Browser-local IndexedDB archive",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/archive-store.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.search-filter",
+      "name": "Archive search and filters",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/archive-query.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.projects-tags-notes",
+      "name": "Projects, tags, notes",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/projects.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.batch-send",
+      "name": "Filtered batch send",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/archive-bulk-send.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.outbox-recovery",
+      "name": "Outbox retry / verified resend",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/direct-routing.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "archive.export",
+      "name": "Read-only JSON export",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/background.js",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "delivery.notion-oauth",
+      "name": "Notion OAuth connection",
+      "introducedVersion": "0.7",
+      "sourceScope": "worker/src/oauth.mjs,worker/src/token-vault.mjs",
+      "classification": "TRANSFORMED_EQUIVALENT",
+      "reason": "Commercial uses ProofClip-managed OAuth callbacks; Community provides the same connection capability through deployer-owned OAuth + encrypted token vault (self-hosted equivalent)."
+    },
+    {
+      "id": "delivery.data-source-setup",
+      "name": "One-click Data Source setup",
+      "introducedVersion": "0.8",
+      "sourceScope": "worker/src/notion-proxy.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "delivery.structured-blocks",
+      "name": "Structured block delivery to Notion",
+      "introducedVersion": "0.8",
+      "sourceScope": "worker/src/notion-proxy.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "delivery.direct-route",
+      "name": "Explicit direct delivery route",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/direct-routing.mjs",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "privacy.nonretention",
+      "name": "OAuth/workspace metadata non-retention",
+      "introducedVersion": "0.8",
+      "sourceScope": "worker/migrations/20260813_privacy_nonretention.sql,worker/src/schema.sql",
+      "classification": "PRESENT"
+    },
+    {
+      "id": "monetization.subscription-keys",
+      "name": "Subscription/bridge keys and monthly work quota",
+      "introducedVersion": "0.7",
+      "sourceScope": "worker/src/subscription.mjs",
+      "classification": "NOT_APPLICABLE",
+      "reason": "Bound to the Commercial paid-subscription operating model (keys, quota walls, device entitlements). Community is open-source and self-hosted with no payment layer; there is no self-hosted equivalent of a commercial key sale workflow."
+    },
+    {
+      "id": "monetization.payment-webhook",
+      "name": "Lemon Squeezy checkout/webhook",
+      "introducedVersion": "0.7",
+      "sourceScope": "worker/src/lemon-license.mjs",
+      "classification": "NOT_APPLICABLE",
+      "reason": "Bound to the Lemon Squeezy hosted payment channel operated by ProofClip; no self-hosted payment channel exists in the product model."
+    },
+    {
+      "id": "monetization.usage-telemetry",
+      "name": "Usage counters and server-side usage report",
+      "introducedVersion": "0.7",
+      "sourceScope": "extension/src/core/usage-counters.mjs,worker/src/usage-report",
+      "classification": "NOT_APPLICABLE",
+      "reason": "Operator-side usage telemetry for the managed service; Community has no operator."
+    },
+    {
+      "id": "services.managed-worker",
+      "name": "ProofClip-managed Worker endpoint",
+      "introducedVersion": "0.7",
+      "sourceScope": "worker",
+      "classification": "NOT_APPLICABLE",
+      "reason": "Deployment difference: the capability is delivered to Community as the deployer-owned Worker (TRANSFORMED_EQUIVALENT deployment), not as an official hosted endpoint; no official domain ships in Community."
+    },
+    {
+      "id": "services.support-portal",
+      "name": "Managed support/refund portal pages",
+      "introducedVersion": "0.7",
+      "sourceScope": "worker/src/worker.mjs",
+      "classification": "NOT_APPLICABLE",
+      "reason": "Bound to the commercial operator's support/refund workflow; self-hosted deployments have no operator to serve these pages."
+    }
+  ],
+  "forwardLeakDiscriminators": [],
+  "note": "forwardLeakDiscriminators must be populated from the frozen Commercial N+1 baseline (e.g. v0.9 discriminators) before Community N+1 work starts; empty until Commercial 0.9 is frozen.",
+  "downstreamEligibility": {
+    "commercialNextVersion": "0.9",
+    "commercialNextFrozen": false,
+    "maintainerApproval": {
+      "approved": false,
+      "approvedBy": null,
+      "approvedAt": null,
+      "note": "Community 0.8 corresponds to Commercial 0.8 (lag 0). Under the one-version-lag rule, release-ready requires either Commercial 0.9 frozen or the maintainer recording explicit downstream approval here (approved: true, approvedBy, approvedAt)."
+    }
+  }
+}

@@ -11,6 +11,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { verifyGeneratedTree } from './verify-generated-tree.mjs';
+import { capabilityAudit } from './capability-audit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -88,6 +89,37 @@ export async function provenanceMatch(repoRoot = ROOT, provenanceFile = join(OUT
     if (hash !== entry.sha256) mismatches += 1;
   }
   return { checked, mismatches, missing, ok: mismatches === 0 && missing === 0 };
+}
+
+async function buildEditionDiffReport(provenanceFile, findings, repoRoot, boundary) {
+  try {
+    const provenance = JSON.parse(await readFile(provenanceFile, 'utf8'));
+    const bySource = {};
+    for (const f of provenance.files || []) bySource[f.source] = (bySource[f.source] || 0) + 1;
+    const cap = await capabilityAudit({ repoRoot, boundary });
+    let manifest = null;
+    try { manifest = JSON.parse(await readFile(join(HERE, 'capability-manifest.json'), 'utf8')); } catch { manifest = null; }
+    return {
+      targetVersion: provenance.targetVersion,
+      commercialBaselineVersion: manifest?.commercialBaseline?.version ?? null,
+      commercialBaselineCommit: manifest?.commercialBaseline?.commit ?? null,
+      commercialBaselineCapabilities: manifest ? (manifest.capabilities || []).map((c) => c.id) : [],
+      communityCapabilities: cap.report ? cap.report.capabilities : {},
+      forwardVersionLeak: cap.report ? cap.report.forwardVersionLeak : [],
+      backportOmission: cap.report ? cap.report.backportOmission : [],
+      fromCommercial: {
+        upstreamFiles: bySource.upstream || 0,
+        transformedFiles: bySource['upstream+transform'] || 0,
+        overlayFiles: bySource.overlay || 0,
+        totalFiles: (provenance.files || []).length
+      },
+      commercialOnlyExcluded: provenance.skippedCount ?? null,
+      unexpectedCommercialDiffusion: cap.report && cap.report.forwardVersionLeak.length ? 'LEAK' : 'NONE',
+      leakScan: { ok: findings.filter((f) => f.startsWith('forbidden')).length === 0, notes: 'enforced by release/verify-generated-tree.mjs forbidden tokens/paths on every cut' }
+    };
+  } catch (error) {
+    return { error: String(error?.message || error) };
+  }
 }
 
 function tryGitHead(repoRoot) {
@@ -201,6 +233,7 @@ export async function cutRelease({ version, repoRoot = ROOT, outDir = ARTIFACTS,
     gates: { repoScan: { ok: scan.ok, scannedFiles: scan.fileCount } },
     packaging: { roots: PACKAGE_ROOTS, files: PACKAGE_FILES, exclusions: packageExclusions },
     build: { nodeVersion: process.version },
+    editionDiffReport: await buildEditionDiffReport(provenanceFile, findings, repoRoot, boundary),
     rehearsals: { freshDeploy: 'NOT_RUN', upgrade07To08: 'NOT_RUN' },
     note: 'STAGED local cut. Promote to READY_FOR_RELEASE_REVIEW only after rehearsals pass and the final audit is green.'
   };
