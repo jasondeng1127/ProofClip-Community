@@ -32,7 +32,7 @@ Choose **Community** when you are comfortable operating your own Cloudflare Work
 
 Do not choose Community expecting a Chrome Web Store install, a managed API, or automatic updates. This release is source-first: you load `extension/src` as an unpacked Chrome extension and operate the required services yourself.
 
-If you prefer a managed, ready-to-use experience with no infrastructure deployment, see [Commercial edition availability](docs/edition-availability.md). The Commercial edition is not currently available.
+If you prefer a managed, ready-to-use experience with no infrastructure deployment, note that the Commercial edition is not currently available.
 
 ## Keep research moving
 
@@ -63,21 +63,21 @@ Captures default to the local Archive. Keep them there for review, personal note
 | Control and updates | Inspectable, deployer-owned infrastructure with user-managed updates. | Managed infrastructure and managed updates when available. |
 | Core value | A complete, local-first and inspectable evidence workflow under the deployer's control. | Convenience and managed operations. |
 
-The Commercial edition is not currently available. When released, its intended path is download, one-click initialization, and use; connecting a user's own Notion workspace remains an explicit authorization step. Read [Commercial edition availability](docs/edition-availability.md) for the current status.
+The Commercial edition is not currently available. When released, its intended path is download, one-click initialization, and use; connecting a user's own Notion workspace remains an explicit authorization step.
 
 ## First successful Community capture
 
 After the technical deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
 
-1. [Load the extension and configure its HTTPS API origin](docs/getting-started.md#1-load-and-connect-the-extension).
+1. [Load the extension and configure its HTTPS API origin](deploy/README.md).
 2. Connect the deployer's Notion integration, choose a Data Source, and map its required **Title** and **URL** properties.
 3. On a page you are researching, press `Alt+1`, `Alt+2`, or `Alt+3`; save locally by default or deliberately choose **Send to Notion** for that capture.
 4. Confirm the expected record in Notion: a title and source URL at minimum, plus the capture content and any optional mapped fields you selected.
 
-The full, source-only loading path, first-success checklist, and data-boundary explanation are in [Getting started](docs/getting-started.md).
+The full, source-only loading path is in the [deployment guide](deploy/README.md); the data-flow boundary is explained in [architecture](docs/architecture.md).
 
 ## Deploy your own Community instance
 
 ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. Each deployer configures its own extension ID and HTTPS API origin. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
 
-Read [the detailed project introduction](docs/project-introduction.md), [Getting started](docs/getting-started.md), [the deployment guide](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), [Notion OAuth guide](docs/self-hosted-notion-oauth.md), [Commercial edition availability](docs/edition-availability.md), and [release checklist](docs/acceptance/community-release-checklist.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.
+Read [the deployment guide](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), and [Notion OAuth guide](docs/self-hosted-notion-oauth.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.
