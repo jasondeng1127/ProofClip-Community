@@ -36,6 +36,24 @@ Tag policy for release-ready: `v<version>` (final) or `v<version>-rcN` (release
 candidate) at HEAD. Fingerprint identity is never sufficient for release-ready;
 git commit verification is mandatory.
 
+Mainline governance gates (see docs/release-process-governance.md):
+- DEFAULT_BRANCH_RELEASE_ALIGNMENT: default branch == main, current branch ==
+  main, release commit is an ancestor of origin/main, origin/main carries the
+  release version + migrations + tooling + CI (checked on every audit).
+- RELEASE_TAG_MUST_DESCEND_FROM_MAIN: the policy tag's commit must be an
+  ancestor of origin/main (release-ready).
+- DEFAULT_CLONE_SMOKE_TEST: `release/verify-cloned-tree.mjs --remote <url>
+  --version <v> --record` performs a fresh `git clone` (no ref flags) and
+  verifies main == target version + discriminators + required files; the
+  recorded result is required by release-ready.
+- README_ASSETS: README relative references must resolve (release-ready).
+- Worktree governance: `git worktree list` is classified
+  (ACTIVE_REQUIRED / TEMPORARY / UNKNOWN); TEMPORARY/UNKNOWN worktrees block
+  release-ready.
+- EDITION_DIFF_REPORT: cut records what came from Commercial, what was
+  excluded, and the leak-scan result (UNEXPECTED_COMMERCIAL_FEATURE_DIFFUSION
+  must be NONE).
+
 Truth model (frozen):
 - `release/provenance/community-<version>.json` is the ONLY audit input for
   provenance (tracked in Git — it is part of the source distribution spec).
