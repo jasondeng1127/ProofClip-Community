@@ -1,5 +1,13 @@
 [CmdletBinding(PositionalBinding = $false)]
-param()
+param(
+  [Parameter(ValueFromRemainingArguments = $true)]
+  [string[]] $RemainingArguments
+)
+
+if ($null -ne $RemainingArguments -and $RemainingArguments.Count -gt 0) {
+  [Console]::Error.WriteLine('This deployment wrapper does not accept positional arguments.')
+  exit 2
+}
 
 $ErrorActionPreference = 'Stop'
 
