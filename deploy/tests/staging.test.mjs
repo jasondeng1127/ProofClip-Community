@@ -5,11 +5,14 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { readStableExtensionIdentity } from '../lib/identity.mjs';
 import { buildNotionRedirectUri } from '../lib/origin.mjs';
 import { createStagingTree, renderWranglerConfig } from '../lib/staging.mjs';
 
 const templatePath = fileURLToPath(new URL('../wrangler.template.jsonc', import.meta.url));
-const extensionId = 'ecpbgjlelajodnnichnflkcjkhojfekl';
+const manifestPath = fileURLToPath(new URL('../../extension/src/manifest.json', import.meta.url));
+const stableIdentity = await readStableExtensionIdentity(manifestPath);
+const extensionId = stableIdentity.extensionId;
 const secretSentinels = [
   'client-secret-sentinel',
   'cloudflare-api-token-sentinel',
@@ -84,6 +87,7 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
   const origin = 'https://Worker.Example/';
   const redirectUri = buildNotionRedirectUri(origin);
   const template = await readFile(templatePath, 'utf8');
+  const stableManifest = await readFile(manifestPath, 'utf8');
   const fixtureBundleScript = [
     "import { mkdir, readFile, writeFile } from 'node:fs/promises';",
     "import { resolve } from 'node:path';",
@@ -105,7 +109,7 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
     await mkdir(join(candidateRoot, 'release', 'records'), { recursive: true });
     await mkdir(join(candidateRoot, 'audit'), { recursive: true });
 
-    await writeFile(join(candidateRoot, 'extension', 'src', 'manifest.json'), '{"manifest_version":3}\n');
+    await writeFile(join(candidateRoot, 'extension', 'src', 'manifest.json'), stableManifest);
     await writeFile(join(candidateRoot, 'extension', 'src', 'community-config.mjs'), "export const COMMUNITY_API_ORIGIN = 'https://replace-me.invalid';\n");
     await writeFile(join(candidateRoot, 'extension', 'src', 'capture.js'), 'export const fixture = true;\n');
     await writeFile(join(candidateRoot, 'worker', 'src', 'index.mjs'), 'export const fixtureWorker = true;\n');
@@ -136,6 +140,7 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
     assert.equal(result.statePath, join(stagingRoot, 'deployment-state.json'));
 
     assert.deepEqual(await listFiles(stagingRoot), [
+      'deploy/wrangler.template.jsonc',
       'deployment-state.json',
       'extension/capture.js',
       'extension/community-config.mjs',
@@ -146,6 +151,8 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
       'worker/src/index.mjs',
       'worker/wrangler.jsonc'
     ]);
+    assert.equal(await readFile(join(stagingRoot, 'deploy', 'wrangler.template.jsonc'), 'utf8'), template);
+    assert.equal((await readStableExtensionIdentity(join(result.extensionDir, 'manifest.json'))).extensionId, extensionId);
     assert.equal(await readFile(join(result.extensionDir, 'community-config.mjs'), 'utf8'), "export const COMMUNITY_API_ORIGIN = 'https://worker.example';\n");
     assert.equal(await readFile(join(candidateRoot, 'extension', 'src', 'community-config.mjs'), 'utf8'), "export const COMMUNITY_API_ORIGIN = 'https://replace-me.invalid';\n");
     assert.match(await readFile(join(result.workerDir, 'dist', 'worker.mjs'), 'utf8'), /staged bundle/);
@@ -171,6 +178,72 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
       const text = await readFile(join(stagingRoot, file), 'utf8');
       for (const sentinel of secretSentinels) assert.doesNotMatch(text, new RegExp(sentinel), file);
     }
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('createStagingTree rejects a staging root nested in the candidate before cleanup', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'proofclip-staging-containment-'));
+  const candidateRoot = join(fixtureRoot, 'candidate');
+  const stagingRoot = join(candidateRoot, 'deploy', '.generated');
+  const candidateSentinel = join(candidateRoot, 'candidate-sentinel.txt');
+  const stagingSentinel = join(stagingRoot, 'staging-sentinel.txt');
+  try {
+    await mkdir(stagingRoot, { recursive: true });
+    await writeFile(candidateSentinel, 'candidate must remain');
+    await writeFile(stagingSentinel, 'cleanup must not run');
+
+    await assert.rejects(
+      createStagingTree({
+        candidateRoot,
+        stagingRoot,
+        workerName: 'proofclip-community',
+        d1Name: 'proofclip-community',
+        d1Id: 'd1-id-sentinel',
+        extensionId,
+        notionClientId: 'notion-client-id-sentinel',
+        redirectUri: buildNotionRedirectUri('https://worker.example')
+      }),
+      /candidateRoot and stagingRoot must not overlap/i
+    );
+    assert.equal(await readFile(candidateSentinel, 'utf8'), 'candidate must remain');
+    assert.equal(await readFile(stagingSentinel, 'utf8'), 'cleanup must not run');
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('createStagingTree rejects an Extension ID that does not match the staged stable manifest', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'proofclip-staging-identity-'));
+  const candidateRoot = join(fixtureRoot, 'candidate');
+  const stagingRoot = join(fixtureRoot, 'generated');
+  try {
+    await mkdir(join(candidateRoot, 'extension', 'src'), { recursive: true });
+    await mkdir(join(candidateRoot, 'worker', 'src'), { recursive: true });
+    await mkdir(join(candidateRoot, 'worker', 'migrations'), { recursive: true });
+    await mkdir(join(candidateRoot, 'worker', 'scripts'), { recursive: true });
+    await mkdir(join(candidateRoot, 'deploy'), { recursive: true });
+    await writeFile(join(candidateRoot, 'extension', 'src', 'manifest.json'), await readFile(manifestPath, 'utf8'));
+    await writeFile(join(candidateRoot, 'extension', 'src', 'community-config.mjs'), "export const COMMUNITY_API_ORIGIN = 'https://replace-me.invalid';\n");
+    await writeFile(join(candidateRoot, 'worker', 'src', 'index.mjs'), 'export const fixtureWorker = true;\n');
+    await writeFile(join(candidateRoot, 'worker', 'migrations', '001_fixture.sql'), 'CREATE TABLE fixture (id TEXT);\n');
+    await writeFile(join(candidateRoot, 'worker', 'scripts', 'bundle-worker.mjs'), 'await import("node:fs/promises");\n');
+    await writeFile(join(candidateRoot, 'deploy', 'wrangler.template.jsonc'), await readFile(templatePath, 'utf8'));
+
+    await assert.rejects(
+      createStagingTree({
+        candidateRoot,
+        stagingRoot,
+        workerName: 'proofclip-community',
+        d1Name: 'proofclip-community',
+        d1Id: 'd1-id-sentinel',
+        extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        notionClientId: 'notion-client-id-sentinel',
+        redirectUri: buildNotionRedirectUri('https://worker.example')
+      }),
+      /Extension ID does not match the staged manifest/i
+    );
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true });
   }

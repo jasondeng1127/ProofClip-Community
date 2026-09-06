@@ -5,6 +5,7 @@ import { resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
+import { readStableExtensionIdentity } from './identity.mjs';
 import { buildNotionRedirectUri, patchCommunityOrigin } from './origin.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -27,6 +28,13 @@ function containedPath(root, ...parts) {
     throw new TypeError(`Path escapes root: ${relative(rootPath, targetPath)}`);
   }
   return targetPath;
+}
+
+function isWithin(root, target) {
+  const rootPath = resolve(root);
+  const targetPath = resolve(target);
+  const prefix = rootPath.endsWith(sep) ? rootPath : `${rootPath}${sep}`;
+  return targetPath !== rootPath && targetPath.startsWith(prefix);
 }
 
 function readTemplate(templatePath) {
@@ -103,8 +111,12 @@ export async function createStagingTree({
 }) {
   const candidatePath = resolve(requiredText('candidateRoot', candidateRoot));
   const generatedPath = resolve(requiredText('stagingRoot', stagingRoot));
-  if (candidatePath === generatedPath || candidatePath.startsWith(`${generatedPath}${sep}`)) {
-    throw new TypeError('stagingRoot must not contain candidateRoot');
+  if (
+    candidatePath === generatedPath ||
+    isWithin(generatedPath, candidatePath) ||
+    isWithin(candidatePath, generatedPath)
+  ) {
+    throw new TypeError('candidateRoot and stagingRoot must not overlap');
   }
 
   const extensionDir = containedPath(generatedPath, 'extension');
@@ -121,7 +133,15 @@ export async function createStagingTree({
   await copyDirectory(candidatePath, generatedPath, 'worker/scripts', 'worker/scripts');
 
   const templatePath = containedPath(candidatePath, 'deploy', 'wrangler.template.jsonc');
-  const template = JSON.parse(await readFile(templatePath, 'utf8'));
+  const stagedTemplatePath = containedPath(generatedPath, 'deploy', 'wrangler.template.jsonc');
+  await mkdir(containedPath(generatedPath, 'deploy'), { recursive: true });
+  await cp(templatePath, stagedTemplatePath, { force: true });
+  const template = JSON.parse(await readFile(stagedTemplatePath, 'utf8'));
+  const stagedManifestPath = containedPath(extensionDir, 'manifest.json');
+  const stagedIdentity = await readStableExtensionIdentity(stagedManifestPath);
+  if (stagedIdentity.extensionId !== requiredText('extensionId', extensionId)) {
+    throw new TypeError('Extension ID does not match the staged manifest identity');
+  }
   const renderedConfig = renderFromTemplate(template, {
     workerName,
     d1Name,
