@@ -300,9 +300,12 @@ async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
       fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate Worker bundle provenance is invalid.');
     }
 
-    const sidecarText = textValue(await fsImpl.readFile(`${root}.sha256`, 'utf8')).trim();
-    const sidecar = sidecarText.match(/^([0-9a-f]{64})\s+(.+)$/i);
-    if (!sidecar || sidecar[1] !== contentFingerprint || sidecar[2].trim() !== basename(root)) {
+    const sidecarText = textValue(await fsImpl.readFile(`${root}.sha256`, 'utf8'));
+    const sidecarLine = sidecarText.endsWith('\n')
+      ? sidecarText.slice(0, -1).replace(/\r$/, '')
+      : sidecarText;
+    const sidecar = !/[\r\n]/.test(sidecarLine) && /^([0-9a-f]{64})\s{2,}([^\s]+)$/.exec(sidecarLine);
+    if (!sidecar || sidecar[1] !== contentFingerprint || sidecar[2] !== basename(root)) {
       fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance sidecar is invalid.');
     }
   } catch (error) {

@@ -527,6 +527,20 @@ await assertCandidateIntegrityFailure('sidecar fingerprint mismatch', async ({ r
   await writeFile(`${root}.sha256`, `${'0'.repeat(64)}  ${basename(root)}\n`);
 });
 
+for (const [label, mutate] of [
+  ['leading whitespace', (sidecar) => ` ${sidecar}`],
+  ['trailing whitespace', (sidecar) => sidecar.replace(/\n$/, ' \n')],
+  ['blank trailing line', (sidecar) => `${sidecar}\n`],
+  ['single-space separator', (sidecar) => sidecar.replace('  ', ' ')],
+  ['single-tab separator', (sidecar) => sidecar.replace('  ', '\t')],
+]) {
+  await assertCandidateIntegrityFailure(`sidecar ${label}`, async ({ root }) => {
+    const sidecarPath = `${root}.sha256`;
+    const validSidecar = await readFile(sidecarPath, 'utf8');
+    await writeFile(sidecarPath, mutate(validSidecar));
+  });
+}
+
 await assertCandidateIntegrityFailure('extra candidate file', async ({ root }) => {
   await writeFile(join(root, 'unexpected.txt'), 'unexpected candidate file\n');
 });
