@@ -2,6 +2,32 @@
 
 Deterministic Commercial → Community export for ProofClip Community.
 
+## Community 0.8.1 clean candidate
+
+Task 7 uses a separate, fail-closed candidate pipeline. It reads one clean Git
+commit, copies only the public allowlist, stages the Worker source, invokes the
+candidate's offline bundle script, and writes a SHA-256 sidecar beside the
+candidate directory. It never consumes an older ZIP, RC/Fresh package, release
+record, audit evidence, or local deployment state.
+
+```powershell
+node release/export-community-0.8.1.mjs --source=D:\ProofClip-Community --out=D:\ProofClip-Community\candidate\community-0.8.1
+node release/verify-community-0.8.1.mjs --candidate=D:\ProofClip-Community\candidate\community-0.8.1 --commit=<source-HEAD> --fingerprint=<content-fingerprint>
+node --test release/tests/community-0.8.1-export.test.mjs release/tests/community-0.8.1-provenance.test.mjs
+```
+
+The export requires `git rev-parse HEAD` and an empty `git status --porcelain`
+for the source root. `PROVENANCE.json` binds the candidate to the source
+commit, raw-byte file hashes, the generated `worker/dist/worker.mjs` hash, and
+the content fingerprint. The verifier scans paths and file content for RC,
+Fresh, Commercial, diagnostic, audit/release, runtime-state, OAuth, Cloudflare,
+Notion, vault, and private-key material; findings report only a category and
+path, never matched secret text.
+
+Release records and artifacts are created only after the human E2E gate. This
+candidate pipeline does not update the existing Community 0.8.0 record or
+artifact, and a local/offline PASS is not deployment or release approval.
+
 ## Layout
 
 - `edition-boundary.json` — A0 machine-readable edition boundary (the single source of truth).
