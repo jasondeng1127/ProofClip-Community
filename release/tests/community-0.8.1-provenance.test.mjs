@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -12,6 +12,15 @@ const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
 
 function git(repo, ...args) {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+
+function treeEntries(repo, commit) {
+  const output = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '-z', '--full-tree', commit], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return output.split('\0').filter(Boolean).map((record) => {
+    const [metadata, path] = record.split('\t');
+    const [mode, type, object] = metadata.split(' ');
+    return { mode, type, object, path };
+  });
 }
 
 async function fixture() {
@@ -61,7 +70,7 @@ function gitImpl(commit, trackedFiles) {
   return {
     revParse: async () => commit,
     statusPorcelain: async () => '',
-    listFiles: async () => trackedFiles,
+    listTree: async (repo, objectCommit) => treeEntries(repo, objectCommit),
     readObject: async (repo, objectCommit, path) => execFileSync('git', ['-C', repo, 'show', `${objectCommit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }),
   };
 }
@@ -106,6 +115,20 @@ test('rejects an RC identity without exposing matched text and keeps findings ca
     assert.equal(result.ok, false);
     assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=RC_IDENTITY path=README.md'));
     assert.doesNotMatch(JSON.stringify(result.findings), /never-print-this/);
+    for (const finding of result.findings) assert.match(String(finding), /^CANDIDATE_PROVENANCE_FAILED category=[A-Z_]+ path=[^ ]+$/);
+  } finally {
+    await rm(state.root, { recursive: true, force: true });
+  }
+});
+
+test('rejects a candidate symlink without following its target or throwing', async () => {
+  const state = await exportFixture();
+  try {
+    await rm(join(state.candidateDir, 'README.md'));
+    await symlink('MIGRATION.md', join(state.candidateDir, 'README.md'), 'file');
+    const result = await verifyCommunity081Candidate({ candidateDir: state.candidateDir, expectedCommit: state.commit, expectedFingerprint: state.exported.contentFingerprint });
+    assert.equal(result.ok, false);
+    assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=NON_REGULAR_ENTRY path=README.md'));
     for (const finding of result.findings) assert.match(String(finding), /^CANDIDATE_PROVENANCE_FAILED category=[A-Z_]+ path=[^ ]+$/);
   } finally {
     await rm(state.root, { recursive: true, force: true });

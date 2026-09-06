@@ -14,12 +14,24 @@ function git(repo, ...args) {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
+function treeEntries(repo, commit, paths) {
+  const output = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '-z', '--full-tree', commit], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const entries = output.split('\0').filter(Boolean).map((record) => {
+    const [metadata, path] = record.split('\t');
+    const [mode, type, object] = metadata.split(' ');
+    return { mode, type, object, path };
+  });
+  if (!paths) return entries;
+  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  return paths.map((path) => byPath.get(path) || { mode: '100644', type: 'blob', object: '0'.repeat(40), path });
+}
+
 function gitImpl(commit, trackedFiles, status = '', options = {}) {
   let listCalls = 0;
   return {
     revParse: async () => commit,
     statusPorcelain: async () => status,
-    listFiles: async (...args) => options.listFiles ? options.listFiles(++listCalls, ...args) : trackedFiles,
+    listTree: async (repo, objectCommit) => options.listTree ? options.listTree(++listCalls, repo, objectCommit) : treeEntries(repo, objectCommit, trackedFiles),
     readObject: async (repo, objectCommit, path) => options.readObject
       ? options.readObject(repo, objectCommit, path)
       : (() => {
@@ -168,6 +180,30 @@ test('uses verified Git object bytes instead of a working-tree mutation', async 
   }
 });
 
+test('rejects a non-regular allowlisted entry in the verified HEAD tree', async () => {
+  const { root } = await createFixture();
+  const outDir = join(root, 'candidate');
+  try {
+    const symlinkObject = execFileSync('git', ['-C', root, 'hash-object', '-w', '--stdin'], {
+      input: 'worker/src/index.mjs',
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    }).trim();
+    git(root, 'update-index', '--add', '--cacheinfo', `120000,${symlinkObject},worker/src/worker.mjs`);
+    git(root, 'commit', '-qm', 'fixture: non-regular production entry');
+    const commit = git(root, 'rev-parse', 'HEAD');
+    const trackedFiles = git(root, 'ls-files').split(/\r?\n/).filter(Boolean);
+    await assert.rejects(
+      createCommunity081Candidate({ sourceRoot: root, outDir, gitImpl: gitImpl(commit, trackedFiles) }),
+      /non-regular|symlink|regular blob/i,
+    );
+    await assert.rejects(access(outDir));
+    await assert.rejects(access(`${outDir}.sha256`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('removes candidate and sidecar when immediate self-verification fails', async () => {
   const { root, commit, trackedFiles } = await createFixture();
   const outDir = join(root, 'candidate');
@@ -183,6 +219,23 @@ test('removes candidate and sidecar when immediate self-verification fails', asy
     );
     await assert.rejects(access(outDir));
     await assert.rejects(access(`${outDir}.sha256`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects a pre-existing sidecar without changing or removing it', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  const sidecar = `${outDir}.sha256`;
+  try {
+    await writeFile(sidecar, 'pre-existing-sidecar\n');
+    await assert.rejects(
+      createCommunity081Candidate({ sourceRoot: root, outDir, gitImpl: gitImpl(commit, trackedFiles) }),
+      /sidecar|exists/i,
+    );
+    assert.equal(await readFile(sidecar, 'utf8'), 'pre-existing-sidecar\n');
+    await assert.rejects(access(outDir));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -253,10 +306,12 @@ test('rejects an unstable tracked file list during export', async () => {
         sourceRoot: root,
         outDir,
         gitImpl: gitImpl(commit, trackedFiles, '', {
-          listFiles: (call) => call === 1 ? trackedFiles : [...trackedFiles, 'README.md'],
+          listTree: (call, repo, objectCommit) => call === 1
+            ? treeEntries(repo, objectCommit, trackedFiles)
+            : treeEntries(repo, objectCommit, [...trackedFiles, 'worker/src/unstable-production.mjs']),
         }),
       }),
-      /tracked.*(changed|unstable)|unstable.*tracked/i,
+      /verified HEAD tree|unstable|duplicate/i,
     );
     await assert.rejects(access(outDir));
   } finally {

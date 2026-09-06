@@ -17,10 +17,12 @@ node --test release/tests/community-0.8.1-export.test.mjs release/tests/communit
 ```
 
 The export requires `git rev-parse HEAD` and an empty `git status --porcelain`
-for the source root. It then reads `git -C <source> ls-files` at the verified
-full HEAD and reads each selected file with `git -C <source> show <HEAD>:<path>`,
-so working-tree bytes cannot enter the candidate. It writes only tracked
-production paths: `extension/src`, production `worker/src`, migrations,
+for the source root. It then reads `git -C <source> ls-tree -r -z --full-tree
+<HEAD>` and accepts only regular blob entries (mode `100644` or `100755`) at
+that verified full HEAD. Each selected file is read with `git -C <source>
+show <HEAD>:<path>`, so working-tree bytes cannot enter the candidate. It
+writes only tracked production paths: `extension/src`, production `worker/src`,
+migrations,
 scripts, the deploy core/wrappers/templates, the focused guide, and the public
 root files. Tests, fixtures, specs, `*.key`/`*.pem`, ignored files, local state,
 and the pre-existing Worker dist are excluded; only the offline-generated
@@ -37,6 +39,11 @@ and file content for RC,
 Fresh, Commercial, diagnostic, audit/release, runtime-state, OAuth, Cloudflare,
 Notion, vault, and private-key material; findings report only a category and
 path, never matched secret text.
+
+The exporter rejects an existing candidate directory or sibling `.sha256`
+sidecar before writing. The verifier uses non-following directory-entry checks
+and rejects candidate symlinks or other non-regular entries with category/path
+findings only.
 
 Release records and artifacts are created only after the human E2E gate. This
 candidate pipeline does not update the existing Community 0.8.0 record or

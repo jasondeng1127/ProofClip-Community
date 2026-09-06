@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { access, mkdtemp, mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promises';
+import { access, lstat, mkdtemp, mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyCommunity081Candidate } from './verify-community-0.8.1.mjs';
@@ -10,6 +10,24 @@ const DEFAULT_SOURCE = resolve(HERE, '..');
 const DEFAULT_OUT = join(HERE, 'out', 'community-0.8.1');
 const KEY = (value) => String(value).split(/[\\/]/).join('/');
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+function parseGitTree(bytes) {
+  const entries = [];
+  for (const record of bytes.toString('utf8').split('\0')) {
+    if (!record) continue;
+    const separator = record.indexOf('\t');
+    if (separator <= 0 || separator === record.length - 1) throw new Error('malformed verified HEAD tree entry');
+    const metadata = record.slice(0, separator).split(' ');
+    const path = record.slice(separator + 1);
+    if (metadata.length !== 3 || !/^(?:100644|100755)$/.test(metadata[0]) || metadata[1] !== 'blob' || !/^[0-9a-f]{40}$/i.test(metadata[2]) || !path || path.includes('\0')) {
+      throw new Error(`non-regular or malformed verified HEAD tree entry: ${path || '<unknown>'}`);
+    }
+    entries.push({ mode: metadata[0], type: metadata[1], object: metadata[2], path: KEY(path) });
+  }
+  entries.sort((a, b) => a.path.localeCompare(b.path));
+  if (new Set(entries.map((entry) => entry.path)).size !== entries.length) throw new Error('duplicate verified HEAD tree entry');
+  return entries;
+}
 
 const ROOT_FILES = new Set([
   'README.md',
@@ -57,16 +75,11 @@ export const defaultGit = {
       return null;
     }
   },
-  listFiles(repoRoot, expectedCommit) {
+  listTree(repoRoot, expectedCommit) {
     try {
       const actualCommit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
       if (expectedCommit && actualCommit !== expectedCommit) return null;
-      return execFileSync('git', ['-C', repoRoot, 'ls-files', '-z', '--'], { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString('utf8')
-        .split('\0')
-        .filter(Boolean)
-        .map(KEY)
-        .sort();
+      return parseGitTree(execFileSync('git', ['-C', repoRoot, 'ls-tree', '-r', '-z', '--full-tree', expectedCommit], { stdio: ['ignore', 'pipe', 'ignore'] }));
     } catch {
       return null;
     }
@@ -113,21 +126,27 @@ function isProductionPath(path) {
   return false;
 }
 
-function normalizeTrackedFiles(trackedFiles) {
-  if (!Array.isArray(trackedFiles)) throw new Error('tracked Git file list is unavailable; refusing to export from the working tree');
-  const normalized = trackedFiles.map(KEY).sort();
-  if (new Set(normalized).size !== normalized.length) throw new Error('tracked Git file list is unstable: duplicate path');
-  return normalized;
+function normalizeTreeEntries(treeEntries) {
+  if (!Array.isArray(treeEntries)) throw new Error('verified HEAD tree is unavailable; refusing to export');
+  const entries = treeEntries.map((entry) => ({
+    mode: String(entry?.mode || ''),
+    type: String(entry?.type || ''),
+    object: String(entry?.object || ''),
+    path: KEY(entry?.path || ''),
+  })).sort((a, b) => a.path.localeCompare(b.path));
+  for (const entry of entries) {
+    if (!/^(?:100644|100755)$/.test(entry.mode) || entry.type !== 'blob' || !/^[0-9a-f]{40}$/i.test(entry.object) || !entry.path || entry.path.startsWith('../') || entry.path.startsWith('/') || /^[A-Za-z]:\//.test(entry.path)) {
+      throw new Error(`non-regular or malformed verified HEAD tree entry: ${entry.path || '<unknown>'}`);
+    }
+  }
+  if (new Set(entries.map((entry) => entry.path)).size !== entries.length) throw new Error('duplicate verified HEAD tree entry');
+  return entries;
 }
 
-function collectAllowlistedFiles(trackedFiles) {
+function collectAllowlistedFiles(treeEntries) {
   const entries = [];
-  for (const trackedPath of normalizeTrackedFiles(trackedFiles)) {
-    if (!isProductionPath(trackedPath)) continue;
-    if (trackedPath.startsWith('../') || trackedPath.startsWith('/') || /^[A-Za-z]:\//.test(trackedPath)) {
-      throw new Error(`invalid tracked path: ${trackedPath}`);
-    }
-    entries.push({ path: trackedPath, output: trackedPath });
+  for (const entry of treeEntries) {
+    if (isProductionPath(entry.path)) entries.push({ path: entry.path, output: entry.path, mode: entry.mode });
   }
   return entries;
 }
@@ -175,23 +194,22 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit || ''))) throw new Error('clean source commit required: git rev-parse HEAD must return the full 40-character commit');
   const status = await Promise.resolve(gitImpl.statusPorcelain(source));
   if (status === null || String(status).trim()) throw new Error('clean source tree required: source tree is dirty');
-  const trackedFiles = normalizeTrackedFiles(await Promise.resolve(gitImpl.listFiles(source, sourceCommit)));
-  const trackedFilesAgain = normalizeTrackedFiles(await Promise.resolve(gitImpl.listFiles(source, sourceCommit)));
-  if (JSON.stringify(trackedFiles) !== JSON.stringify(trackedFilesAgain)) throw new Error('tracked Git file list changed during export; refusing unstable source');
+  const treeEntries = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
+  const treeEntriesAgain = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
+  if (JSON.stringify(treeEntries) !== JSON.stringify(treeEntriesAgain)) throw new Error('verified HEAD tree changed during export; refusing unstable source');
 
   await access(source);
   await mkdir(dirname(candidateDir), { recursive: true });
-  try {
-    await access(candidateDir);
-    throw new Error(`candidate output already exists: ${candidateDir}`);
-  } catch (error) {
-    if (error?.message?.startsWith('candidate output already exists:')) throw error;
-  }
-
-  const entries = collectAllowlistedFiles(trackedFiles);
-  const tempDir = await mkdtemp(join(dirname(candidateDir), `.community-081-${now().replace(/[^0-9A-Za-z-]/g, '')}-`));
+  const candidateExists = await (async () => { try { await lstat(candidateDir); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; } })();
+  if (candidateExists) throw new Error(`candidate output already exists: ${candidateDir}`);
   const sidecar = `${candidateDir}.sha256`;
+  const sidecarExists = await (async () => { try { await lstat(sidecar); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; } })();
+  if (sidecarExists) throw new Error(`candidate sidecar already exists: ${sidecar}`);
+
+  const entries = collectAllowlistedFiles(treeEntries);
+  const tempDir = await mkdtemp(join(dirname(candidateDir), `.community-081-${now().replace(/[^0-9A-Za-z-]/g, '')}-`));
   let published = false;
+  let sidecarCreated = false;
   try {
     for (const entry of entries) {
       const destination = join(tempDir, entry.output);
@@ -224,7 +242,8 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     await writeFile(join(tempDir, 'PROVENANCE.json'), `${JSON.stringify(provenance, null, 2)}\n`, 'utf8');
     await rename(tempDir, candidateDir);
     published = true;
-    await writeFile(sidecar, `${payload.contentFingerprint}  ${candidateDir.split(/[\\/]/).at(-1)}\n`, 'utf8');
+    await writeFile(sidecar, `${payload.contentFingerprint}  ${candidateDir.split(/[\\/]/).at(-1)}\n`, { encoding: 'utf8', flag: 'wx' });
+    sidecarCreated = true;
     let verification;
     try {
       verification = await verifyImpl({ candidateDir, expectedCommit: sourceCommit, expectedFingerprint: payload.contentFingerprint });
@@ -236,10 +255,9 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   } catch (error) {
     if (published) {
       await rm(candidateDir, { recursive: true, force: true });
-      await rm(sidecar, { force: true });
-    } else {
-      await rm(tempDir, { recursive: true, force: true });
     }
+    if (sidecarCreated) await rm(sidecar, { force: true });
+    if (!published) await rm(tempDir, { recursive: true, force: true });
     throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { access, readdir, readFile } from 'node:fs/promises';
+import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveExtensionId } from '../deploy/lib/identity.mjs';
@@ -43,17 +43,25 @@ function isAllowedPath(path) {
   return false;
 }
 
-async function walkFiles(root) {
-  const files = [];
+async function walkEntries(root) {
+  const entries = [];
   async function visit(dir) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
-      if (entry.isDirectory()) await visit(full);
-      else files.push(full);
+      const path = KEY(relative(root, full));
+      let info;
+      try {
+        info = await lstat(full);
+      } catch {
+        entries.push({ full, path, regular: false });
+        continue;
+      }
+      if (entry.isDirectory() && info.isDirectory()) await visit(full);
+      else entries.push({ full, path, regular: entry.isFile() && info.isFile() });
     }
   }
   await visit(root);
-  return files;
+  return entries;
 }
 
 function finding(category, path) {
@@ -93,28 +101,50 @@ const textRules = [
 
 async function readPayload(candidateDir) {
   const payload = [];
-  for (const file of await walkFiles(candidateDir)) {
-    const path = KEY(relative(candidateDir, file));
+  const findings = [];
+  for (const entry of await walkEntries(candidateDir)) {
+    const path = entry.path;
     if (path === 'PROVENANCE.json') continue;
-    const bytes = await readFile(file);
-    payload.push({ path, sha256: sha256(bytes), bytes });
+    if (!entry.regular) {
+      findings.push(finding('NON_REGULAR_ENTRY', path));
+      continue;
+    }
+    try {
+      const info = await lstat(entry.full);
+      if (!info.isFile()) {
+        findings.push(finding('NON_REGULAR_ENTRY', path));
+        continue;
+      }
+      const bytes = await readFile(entry.full);
+      payload.push({ path, sha256: sha256(bytes), bytes });
+    } catch {
+      findings.push(finding('UNREADABLE_ENTRY', path));
+    }
   }
   payload.sort((a, b) => a.path.localeCompare(b.path));
-  return payload;
+  return { payload, findings };
 }
 
 export async function verifyCommunity081Candidate({ candidateDir, expectedCommit, expectedFingerprint }) {
   const root = resolve(candidateDir);
   const findings = [];
   let provenance;
+  let provenanceText;
   try {
-    await access(root);
-    provenance = JSON.parse(await readFile(join(root, 'PROVENANCE.json'), 'utf8'));
+    const rootInfo = await lstat(root);
+    if (!rootInfo.isDirectory()) return { ok: false, findings: [finding('NON_REGULAR_ENTRY', '.')], files: [], contentFingerprint: null };
+    const provenancePath = join(root, 'PROVENANCE.json');
+    const provenanceInfo = await lstat(provenancePath);
+    if (!provenanceInfo.isFile()) return { ok: false, findings: [finding('NON_REGULAR_ENTRY', 'PROVENANCE.json')], files: [], contentFingerprint: null };
+    provenanceText = await readFile(provenancePath, 'utf8');
+    provenance = JSON.parse(provenanceText);
   } catch {
     return { ok: false, findings: [finding('PROVENANCE_MISSING_OR_INVALID', 'PROVENANCE.json')], files: [], contentFingerprint: null };
   }
 
-  const payload = await readPayload(root);
+  const payloadResult = await readPayload(root);
+  const payload = payloadResult.payload;
+  findings.push(...payloadResult.findings);
   const files = payload.map(({ path, sha256: fileHash }) => ({ path, sha256: fileHash }));
   const contentFingerprint = fingerprint(files);
   const actualPaths = new Set(files.map((file) => file.path));
@@ -126,7 +156,6 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
     if (!text.includes('\uFFFD')) for (const rule of textRules) if (rule.pattern.test(text)) findings.push(finding(rule.category, file.path));
   }
 
-  const provenanceText = await readFile(join(root, 'PROVENANCE.json'), 'utf8');
   for (const rule of textRules) if (rule.pattern.test(provenanceText)) findings.push(finding(rule.category, 'PROVENANCE.json'));
   try {
     const manifest = JSON.parse((payload.find((file) => file.path === 'extension/src/manifest.json')?.bytes || '').toString('utf8'));
