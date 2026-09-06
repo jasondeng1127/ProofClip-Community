@@ -58,7 +58,12 @@ async function fixture() {
 }
 
 function gitImpl(commit, trackedFiles) {
-  return { revParse: async () => commit, statusPorcelain: async () => '', listFiles: async () => trackedFiles };
+  return {
+    revParse: async () => commit,
+    statusPorcelain: async () => '',
+    listFiles: async () => trackedFiles,
+    readObject: async (repo, objectCommit, path) => execFileSync('git', ['-C', repo, 'show', `${objectCommit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }),
+  };
 }
 
 async function exportFixture() {
@@ -185,5 +190,5 @@ test('requires the fixed Community stable Extension ID and rejects a changed non
   });
   assert.equal(STABLE_EXTENSION_ID, 'ecpbgjlelajodnnichnflkcjkhojfekl');
   assert.equal(result.ok, false);
-  assert.ok(result.findings.some((finding) => /STABLE_EXTENSION_ID|STABLE_MANIFEST_KEY/.test(finding)));
+  assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=STABLE_PUBLIC_KEY_MISMATCH path=extension/src/manifest.json'));
 });

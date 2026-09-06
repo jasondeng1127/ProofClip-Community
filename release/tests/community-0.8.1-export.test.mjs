@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 import { createCommunity081Candidate } from '../export-community-0.8.1.mjs';
+import { verifyCommunity081Candidate } from '../verify-community-0.8.1.mjs';
 
 const STABLE_PUBLIC_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
 
@@ -13,8 +14,22 @@ function git(repo, ...args) {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
-function gitImpl(commit, trackedFiles, status = '') {
-  return { revParse: async () => commit, statusPorcelain: async () => status, listFiles: async () => trackedFiles };
+function gitImpl(commit, trackedFiles, status = '', options = {}) {
+  let listCalls = 0;
+  return {
+    revParse: async () => commit,
+    statusPorcelain: async () => status,
+    listFiles: async (...args) => options.listFiles ? options.listFiles(++listCalls, ...args) : trackedFiles,
+    readObject: async (repo, objectCommit, path) => options.readObject
+      ? options.readObject(repo, objectCommit, path)
+      : (() => {
+        try {
+          return execFileSync('git', ['-C', repo, 'show', `${objectCommit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] });
+        } catch {
+          return null;
+        }
+      })(),
+  };
 }
 
 async function put(root, path, content) {
@@ -70,6 +85,7 @@ async function createFixture() {
   await put(root, 'MIGRATION.md', '# Migration\n');
 
   await put(root, 'extension/src/tests/capture.test.mjs', 'const fixture = "fixture-only";\n');
+  await put(root, 'worker/src/test-data/sample.json', '{"fixture":true}\n');
   await put(root, 'worker/src/tests/worker.test.mjs', 'const fixture = "oauth_state=fixture-only";\n');
   await put(root, 'deploy/tests/env.test.mjs', 'const secretFixture = "NOTION_CLIENT_SECRET=fixture-only";\n');
   await put(root, 'audit/old-report.md', 'audit evidence must not ship\n');
@@ -131,8 +147,42 @@ test('exports two byte-identical candidates from the same tracked clean HEAD', a
     assert.equal(provenance.contentFingerprint, first.contentFingerprint);
     assert.equal(provenance.bundle.path, 'worker/dist/worker.mjs');
     assert.equal(provenance.bundle.sha256, createHash('sha256').update(await readFile(join(outA, 'worker/dist/worker.mjs'))).digest('hex'));
+    const verified = await verifyCommunity081Candidate({ candidateDir: outA, expectedCommit: commit, expectedFingerprint: first.contentFingerprint });
+    assert.equal(verified.ok, true, JSON.stringify(verified.findings));
     await access(join(root, 'candidate-a.sha256'));
     await access(join(root, 'candidate-b.sha256'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('uses verified Git object bytes instead of a working-tree mutation', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  try {
+    await writeFile(join(root, 'README.md'), '# working-tree mutation must not ship\n');
+    await createCommunity081Candidate({ sourceRoot: root, outDir, gitImpl: gitImpl(commit, trackedFiles) });
+    assert.equal(await readFile(join(outDir, 'README.md'), 'utf8'), '# ProofClip Community\n');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('removes candidate and sidecar when immediate self-verification fails', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({
+        sourceRoot: root,
+        outDir,
+        gitImpl: gitImpl(commit, trackedFiles),
+        verifyImpl: async () => ({ ok: false, findings: ['CANDIDATE_PROVENANCE_FAILED category=TEST path=README.md'] }),
+      }),
+      /self-verification/i,
+    );
+    await assert.rejects(access(outDir));
+    await assert.rejects(access(`${outDir}.sha256`));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -169,7 +219,7 @@ test('copies only tracked production files and excludes tests, fixtures, ignored
     assert.ok(paths.includes('worker/dist/worker.mjs'));
     assert.ok(paths.includes('docs/community-0.8.1-deployment.md'));
     assert.equal(paths.filter((path) => path.startsWith('worker/dist/')).length, 1);
-    assert.ok(!paths.some((path) => /(^|\/)(tests?|fixtures?)(\/|$)|\.(test|spec)\./i.test(path)));
+    assert.ok(!paths.some((path) => /(^|\/)(tests?|fixtures?|test[-_]?(?:data|fixtures))(\/|$)|\.(test|spec)\./i.test(path)));
     assert.ok(!paths.some((path) => /^(audit|release|runtime-evidence|\.wrangler)\//.test(path)));
     assert.ok(!paths.some((path) => /deploy\/(private\.key|\.generated|\.state|node_modules)/.test(path)));
     assert.ok(!paths.some((path) => /\.zip$|private\.key$/.test(path)));
@@ -187,6 +237,26 @@ test('rejects a tracked allowlisted path that is missing from the source tree', 
     await assert.rejects(
       createCommunity081Candidate({ sourceRoot: root, outDir, gitImpl: gitImpl(commit, [...trackedFiles, 'worker/src/missing-production.mjs']) }),
       /required source file missing/i,
+    );
+    await assert.rejects(access(outDir));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects an unstable tracked file list during export', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({
+        sourceRoot: root,
+        outDir,
+        gitImpl: gitImpl(commit, trackedFiles, '', {
+          listFiles: (call) => call === 1 ? trackedFiles : [...trackedFiles, 'README.md'],
+        }),
+      }),
+      /tracked.*(changed|unstable)|unstable.*tracked/i,
     );
     await assert.rejects(access(outDir));
   } finally {

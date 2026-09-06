@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { access, copyFile, mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile, rename } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyCommunity081Candidate } from './verify-community-0.8.1.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_SOURCE = resolve(HERE, '..');
@@ -56,14 +57,23 @@ export const defaultGit = {
       return null;
     }
   },
-  listFiles(repoRoot) {
+  listFiles(repoRoot, expectedCommit) {
     try {
+      const actualCommit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      if (expectedCommit && actualCommit !== expectedCommit) return null;
       return execFileSync('git', ['-C', repoRoot, 'ls-files', '-z', '--'], { stdio: ['ignore', 'pipe', 'ignore'] })
         .toString('utf8')
         .split('\0')
         .filter(Boolean)
         .map(KEY)
         .sort();
+    } catch {
+      return null;
+    }
+  },
+  readObject(repoRoot, commit, path) {
+    try {
+      return execFileSync('git', ['-C', repoRoot, 'show', `${commit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] });
     } catch {
       return null;
     }
@@ -89,7 +99,7 @@ function isProductionPath(path) {
   if (normalized === 'PROVENANCE.json') return false;
   if (ROOT_FILES.has(normalized) || normalized === 'docs/community-0.8.1-deployment.md') return true;
   const segments = normalized.split('/');
-  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
+  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'test-data', 'testdata', 'test-fixtures', 'test_fixtures', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
   if (/\.(test|spec)\.[^/]+$/i.test(normalized)) return false;
   if (/\.(?:key|pem)$/i.test(normalized)) return false;
   if (normalized.startsWith('extension/src/')) return true;
@@ -103,26 +113,29 @@ function isProductionPath(path) {
   return false;
 }
 
-async function collectAllowlistedFiles(sourceRoot, trackedFiles) {
+function normalizeTrackedFiles(trackedFiles) {
   if (!Array.isArray(trackedFiles)) throw new Error('tracked Git file list is unavailable; refusing to export from the working tree');
+  const normalized = trackedFiles.map(KEY).sort();
+  if (new Set(normalized).size !== normalized.length) throw new Error('tracked Git file list is unstable: duplicate path');
+  return normalized;
+}
+
+function collectAllowlistedFiles(trackedFiles) {
   const entries = [];
-  for (const trackedPath of [...new Set(trackedFiles.map(KEY))].sort()) {
+  for (const trackedPath of normalizeTrackedFiles(trackedFiles)) {
     if (!isProductionPath(trackedPath)) continue;
     if (trackedPath.startsWith('../') || trackedPath.startsWith('/') || /^[A-Za-z]:\//.test(trackedPath)) {
       throw new Error(`invalid tracked path: ${trackedPath}`);
     }
-    entries.push({ source: join(sourceRoot, ...trackedPath.split('/')), output: trackedPath });
+    entries.push({ path: trackedPath, output: trackedPath });
   }
   return entries;
 }
 
-async function assertSourceFile(entry) {
-  try {
-    const info = await stat(entry.source);
-    if (!info.isFile()) throw new Error(`required source path is not a file: ${entry.output}`);
-  } catch (error) {
-    throw new Error(`required source file missing: ${entry.output}`, { cause: error });
-  }
+async function readTrackedObject(gitImpl, sourceRoot, sourceCommit, path) {
+  const bytes = await Promise.resolve(gitImpl.readObject?.(sourceRoot, sourceCommit, path));
+  if (!Buffer.isBuffer(bytes)) throw new Error(`required source file missing from verified Git object: ${path}`);
+  return bytes;
 }
 
 async function runBundle(candidateDir) {
@@ -154,7 +167,7 @@ function ensureRequiredFiles(files) {
   if (missing.length) throw new Error(`candidate required files missing: ${missing.join(', ')}`);
 }
 
-export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE, outDir = DEFAULT_OUT, gitImpl = defaultGit, now = () => new Date().toISOString() }) {
+export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE, outDir = DEFAULT_OUT, gitImpl = defaultGit, now = () => new Date().toISOString(), verifyImpl = verifyCommunity081Candidate }) {
   const source = resolve(sourceRoot);
   const candidateDir = resolve(outDir);
 
@@ -162,7 +175,9 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit || ''))) throw new Error('clean source commit required: git rev-parse HEAD must return the full 40-character commit');
   const status = await Promise.resolve(gitImpl.statusPorcelain(source));
   if (status === null || String(status).trim()) throw new Error('clean source tree required: source tree is dirty');
-  const trackedFiles = await Promise.resolve(gitImpl.listFiles(source));
+  const trackedFiles = normalizeTrackedFiles(await Promise.resolve(gitImpl.listFiles(source, sourceCommit)));
+  const trackedFilesAgain = normalizeTrackedFiles(await Promise.resolve(gitImpl.listFiles(source, sourceCommit)));
+  if (JSON.stringify(trackedFiles) !== JSON.stringify(trackedFilesAgain)) throw new Error('tracked Git file list changed during export; refusing unstable source');
 
   await access(source);
   await mkdir(dirname(candidateDir), { recursive: true });
@@ -173,14 +188,15 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     if (error?.message?.startsWith('candidate output already exists:')) throw error;
   }
 
-  const entries = await collectAllowlistedFiles(source, trackedFiles);
-  for (const entry of entries) await assertSourceFile(entry);
+  const entries = collectAllowlistedFiles(trackedFiles);
   const tempDir = await mkdtemp(join(dirname(candidateDir), `.community-081-${now().replace(/[^0-9A-Za-z-]/g, '')}-`));
+  const sidecar = `${candidateDir}.sha256`;
+  let published = false;
   try {
     for (const entry of entries) {
       const destination = join(tempDir, entry.output);
       await mkdir(dirname(destination), { recursive: true });
-      await copyFile(entry.source, destination);
+      await writeFile(destination, await readTrackedObject(gitImpl, source, sourceCommit, entry.path));
     }
 
     await runBundle(tempDir);
@@ -207,11 +223,23 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     };
     await writeFile(join(tempDir, 'PROVENANCE.json'), `${JSON.stringify(provenance, null, 2)}\n`, 'utf8');
     await rename(tempDir, candidateDir);
-    const sidecar = `${candidateDir}.sha256`;
+    published = true;
     await writeFile(sidecar, `${payload.contentFingerprint}  ${candidateDir.split(/[\\/]/).at(-1)}\n`, 'utf8');
+    let verification;
+    try {
+      verification = await verifyImpl({ candidateDir, expectedCommit: sourceCommit, expectedFingerprint: payload.contentFingerprint });
+    } catch (error) {
+      throw new Error('candidate self-verification failed', { cause: error });
+    }
+    if (!verification?.ok) throw new Error('candidate self-verification failed');
     return { sourceCommit, files: payload.files, contentFingerprint: payload.contentFingerprint, candidateDir };
   } catch (error) {
-    await rm(tempDir, { recursive: true, force: true });
+    if (published) {
+      await rm(candidateDir, { recursive: true, force: true });
+      await rm(sidecar, { force: true });
+    } else {
+      await rm(tempDir, { recursive: true, force: true });
+    }
     throw error;
   }
 }

@@ -7,6 +7,7 @@ import { deriveExtensionId } from '../deploy/lib/identity.mjs';
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const KEY = (value) => String(value).split(/[\\/]/).join('/');
 const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
+const STABLE_PUBLIC_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
 const ROOT_FILES = new Set(['README.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'TRADEMARKS.md', 'MIGRATION.md']);
 const REQUIRED_FILES = new Set([
   'extension/src/manifest.json',
@@ -29,7 +30,7 @@ function isAllowedPath(path) {
   if (path === 'PROVENANCE.json' || path === 'worker/dist/worker.mjs') return true;
   if (ROOT_FILES.has(path) || path === 'docs/community-0.8.1-deployment.md') return true;
   const segments = path.split('/');
-  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
+  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'test-data', 'testdata', 'test-fixtures', 'test_fixtures', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
   if (/\.(test|spec)\.[^/]+$/i.test(path)) return false;
   if (/\.(?:key|pem)$/i.test(path)) return false;
   if (path.startsWith('extension/src/')) return true;
@@ -132,6 +133,7 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
     if (manifest.manifest_version !== 3 || manifest.version !== '0.8.1') findings.push(finding('MANIFEST_VERSION_INVALID', 'extension/src/manifest.json'));
     if (typeof manifest.key !== 'string' || !manifest.key.trim()) findings.push(finding('STABLE_MANIFEST_KEY_MISSING', 'extension/src/manifest.json'));
     else {
+      if (manifest.key !== STABLE_PUBLIC_KEY) findings.push(finding('STABLE_PUBLIC_KEY_MISMATCH', 'extension/src/manifest.json'));
       try {
         if (deriveExtensionId(manifest.key) !== STABLE_EXTENSION_ID) findings.push(finding('STABLE_EXTENSION_ID_MISMATCH', 'extension/src/manifest.json'));
       } catch {
