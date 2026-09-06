@@ -37,6 +37,10 @@ const FORBIDDEN_SEGMENTS = new Set([
   'runtime',
   'runtime-evidence',
   'local-runtime',
+  'legacy',
+  'legacy-artifacts',
+  'artifact',
+  'artifacts',
   'release-record',
   'release-records'
 ]);
@@ -106,6 +110,10 @@ function isForbiddenCandidatePath(relativePath) {
   if (segments.includes('release') && ['records', 'artifacts', 'tmp'].includes(segments[segments.indexOf('release') + 1])) return true;
   if (/^proofclip-community-rc\d+(?:[-_.]|$)/i.test(fileName)) return true;
   if (/(?:^|[-_.])rc\d+(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/\.zip$/i.test(fileName)) return true;
+  if (/^(?:(?:proofclip-community|community)[-_.])?v?0\.8\.\d+(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/^(?:current[-_.])?release(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/^copying[-_.]manifest(?:[-_.]|$)/i.test(fileName)) return true;
   if (/^(?:release[-_.])?record(?:s)?(?:[-_.]|$)/i.test(fileName)) return true;
   if (/^audit[-_.]/i.test(fileName)) return true;
   if (/^(?:commercial|fresh|diagnostic)(?:[-_.]|$)/i.test(fileName)) return true;
@@ -210,8 +218,27 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
   const hash = createHash('sha256');
   for (const file of identityFiles) hash.update(normalizeRelative(relative(root, file))).update('\0').update(textValue(await fsImpl.readFile(file))).update('\0');
   const candidateSha256 = hash.digest('hex');
-  const candidateCommit = await readGitCommit({ root, fsImpl }) || candidateSha256.slice(0, 40);
+  const candidateCommit = await readCandidateCommit({ root, fsImpl });
   return { root, extensionId, candidateCommit, candidateSha256 };
+}
+
+async function readCandidateCommit({ root, fsImpl }) {
+  const gitCommit = await readGitCommit({ root, fsImpl });
+  if (gitCommit) return gitCommit;
+  try {
+    const provenance = JSON.parse(textValue(await fsImpl.readFile(join(root, 'PROVENANCE.json'), 'utf8')));
+    if (
+      provenance?.edition !== 'community'
+      || provenance?.targetVersion !== VERSION
+      || !/^[0-9a-f]{40}$/i.test(provenance?.sourceCommit || '')
+    ) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate 0.8.1 provenance source commit is invalid.');
+    }
+    return provenance.sourceCommit;
+  } catch (error) {
+    if (error instanceof DeployError) throw error;
+    fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate 0.8.1 provenance record is missing or invalid.');
+  }
 }
 
 async function readGitCommit({ root, fsImpl }) {

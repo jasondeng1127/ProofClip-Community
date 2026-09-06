@@ -79,6 +79,37 @@ function workerBinding(worker, bindingName) {
   return null;
 }
 
+function settingsBackedWorker(metadata, settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    fail('CLOUDFLARE_RESPONSE_INVALID', 'The existing Worker settings response is invalid.');
+  }
+  return {
+    id: metadata?.id,
+    uuid: metadata?.uuid,
+    name: resourceName(metadata),
+    script_name: metadata?.script_name,
+    type: text(metadata?.type) || text(metadata?.resourceType) || text(metadata?.resource_type),
+    vars: settings.vars,
+    bindings: settings.bindings,
+    d1_databases: settings.d1_databases,
+    settings: settings.settings,
+    config: settings.config,
+    environment: settings.environment,
+    env: settings.env
+  };
+}
+
+function hasCompleteInlineOwnership(worker) {
+  return Boolean(
+    workerVariable(worker, ['PROOFCLIP_DEPLOYMENT_MARKER', 'marker', 'deploymentMarker'])
+    && workerVariable(worker, ['PROOFCLIP_EXTENSION_ID', 'extensionId'])
+    && workerVariable(worker, ['NOTION_REDIRECT_URI', 'redirectUri', 'callbackUri'])
+    && workerVariable(worker, ['PROOFCLIP_CANDIDATE_COMMIT', 'candidateCommit'])
+    && workerVariable(worker, ['PROOFCLIP_CANDIDATE_SHA256', 'candidateSha256'])
+    && workerBinding(worker, 'DB')
+  );
+}
+
 function originFromCandidate(candidate) {
   if (text(candidate?.workerOrigin)) return normalizeHttpsOrigin(candidate.workerOrigin);
   if (text(candidate?.origin)) return normalizeHttpsOrigin(candidate.origin);
@@ -227,6 +258,15 @@ export async function resolveDeploymentResources({ cloudflare, state = null, can
   }
 
   if (!worker || !d1) fail('RESOURCE_CONFLICT', 'Local deployment state points to a missing Cloudflare resource.');
-  assertOwnedWorker(worker, d1, expected);
-  return { accountId, worker, d1, workerAction: 'reuse', d1Action: 'reuse', workerOrigin };
+  let ownedWorker = worker;
+  // Older unit doubles may expose the complete legacy list shape but not the
+  // settings endpoint. The real adapter calls settings whenever list metadata
+  // cannot prove the complete ownership tuple; it never falls back from an
+  // incomplete list response.
+  if (typeof cloudflare.getWorkerSettings === 'function' && !hasCompleteInlineOwnership(worker)) {
+    const settings = await cloudflare.getWorkerSettings(accountId, resolvedNames.workerName);
+    ownedWorker = settingsBackedWorker(worker, settings);
+  }
+  assertOwnedWorker(ownedWorker, d1, expected);
+  return { accountId, worker: ownedWorker, d1, workerAction: 'reuse', d1Action: 'reuse', workerOrigin };
 }

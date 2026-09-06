@@ -95,6 +95,14 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
     return workers.find((worker) => worker?.name === workerName || worker?.script_name === workerName) ?? null;
   }
 
+  async function getWorkerSettings(accountId, workerName) {
+    return request(
+      'Worker settings discovery',
+      `/accounts/${pathSegment(accountId)}/workers/scripts/${pathSegment(workerName)}/settings`,
+      { resultShape: 'object' }
+    );
+  }
+
   async function getD1Databases(accountId) {
     return request('D1 discovery', `/accounts/${pathSegment(accountId)}/d1/database?per_page=100`, { resultShape: 'array' });
   }
@@ -121,6 +129,7 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
     listAccounts,
     getWorkers,
     getWorker,
+    getWorkerSettings,
     getD1Databases,
     getD1,
     createD1,

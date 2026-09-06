@@ -15,6 +15,7 @@ const manifestPath = join(repoRoot, 'extension', 'src', 'manifest.json');
 const templatePath = join(repoRoot, 'deploy', 'wrangler.template.jsonc');
 const stableIdentity = await readStableExtensionIdentity(manifestPath);
 const stableExtensionOrigin = `chrome-extension://${stableIdentity.extensionId}`;
+const CANDIDATE_SOURCE_COMMIT = 'a'.repeat(40);
 
 const SENTINELS = {
   cfApiToken: 'cf-api-token-sentinel',
@@ -45,6 +46,11 @@ async function createCandidate() {
     "await writeFile(resolve(root, 'dist', 'worker.mjs'), `// fixture bundle\\n${source}`, 'utf8');",
   ].join('\n'));
   await cp(templatePath, join(root, 'deploy', 'wrangler.template.jsonc'));
+  await writeFile(join(root, 'PROVENANCE.json'), JSON.stringify({
+    edition: 'community',
+    targetVersion: '0.8.1',
+    sourceCommit: CANDIDATE_SOURCE_COMMIT,
+  }) + '\n');
   const envPath = join(root, 'deploy', 'deploy.env');
   await writeFile(envPath, [
     `CF_API_TOKEN=${SENTINELS.cfApiToken}`,
@@ -91,8 +97,10 @@ function createWranglerSpawn({ events, remote, secretInputs }) {
       if (args[0] === 'secret') secretInputs.push({ args: [...args], input, options });
       if (args[0] === 'deploy') {
         const config = JSON.parse(readFileSync(join(options.cwd, 'wrangler.jsonc'), 'utf8'));
-        remote.worker.vars.PROOFCLIP_CANDIDATE_COMMIT = config.vars.PROOFCLIP_CANDIDATE_COMMIT;
-        remote.worker.vars.PROOFCLIP_CANDIDATE_SHA256 = config.vars.PROOFCLIP_CANDIDATE_SHA256;
+        remote.settings = {
+          vars: config.vars,
+          d1_databases: config.d1_databases,
+        };
         remote.deployed = true;
       }
       child.stdout.end(args[0] === 'deploy'
@@ -135,6 +143,10 @@ function createFetchMock({ events, remote, health = {} }) {
       events.push('subdomain');
       return { status: 200, async json() { return { success: true, result: { subdomain: 'example' } }; } };
     }
+    if (path.includes('/workers/scripts/') && path.endsWith('/settings')) {
+      events.push('worker-settings');
+      return { status: 200, async json() { return { success: true, result: remote.settings }; } };
+    }
     if (path.endsWith('/workers/scripts')) {
       events.push('worker-list');
       return { status: 200, async json() { return { success: true, result: remote.deployed ? [remote.worker] : [] }; } };
@@ -158,17 +170,12 @@ function configureRemote() {
     workerOrigin: 'https://proofclip-community.example.workers.dev',
     d1Exists: false,
     deployed: false,
+    settings: null,
     d1: { uuid: 'd1-id-sentinel', id: 'd1-id-sentinel', name: 'proofclip-community' },
     worker: {
       id: 'worker-id-sentinel',
       name: 'proofclip-community',
       type: 'worker',
-      vars: {
-        PROOFCLIP_DEPLOYMENT_MARKER: 'community-0.8.1',
-        PROOFCLIP_EXTENSION_ID: stableIdentity.extensionId,
-        NOTION_REDIRECT_URI: `${'https://proofclip-community.example.workers.dev'}/v1/auth/notion/callback`,
-      },
-      bindings: [{ name: 'DB', type: 'd1', database_id: 'd1-id-sentinel' }],
     },
   };
 }
@@ -213,6 +220,7 @@ test('runDeployment performs the offline deployment contract in order and writes
     assert.ok(events.indexOf('d1:src/schema.sql') < events.indexOf('deploy'));
     assert.ok(events.indexOf('deploy') < events.indexOf('health:/privacy'));
     assert.ok(events.indexOf('health:/v1/auth/start') < events.indexOf(`write:${statePath}`));
+    assert.equal(events.includes('worker-settings'), false);
 
     assert.equal(secretInputs.length, 2);
     assert.deepEqual(secretInputs.map(({ args }) => args), [
@@ -226,7 +234,9 @@ test('runDeployment performs the offline deployment contract in order and writes
 
     const stateText = await readFile(statePath, 'utf8');
     assert.doesNotMatch(stateText, /cf-api-token-sentinel|notion-client-secret-sentinel|TOKEN_VAULT_KEY/);
-    assert.deepEqual(JSON.parse(stateText), {
+    const persistedState = JSON.parse(stateText);
+    assert.equal(persistedState.candidateCommit, CANDIDATE_SOURCE_COMMIT);
+    assert.deepEqual(persistedState, {
       schemaVersion: 1,
       accountId: remote.accountId,
       workerId: remote.worker.id,
@@ -234,8 +244,8 @@ test('runDeployment performs the offline deployment contract in order and writes
       d1Id: remote.d1.id,
       d1Name: 'proofclip-community',
       extensionId: stableIdentity.extensionId,
-      candidateCommit: JSON.parse(stateText).candidateCommit,
-      candidateSha256: JSON.parse(stateText).candidateSha256,
+      candidateCommit: CANDIDATE_SOURCE_COMMIT,
+      candidateSha256: persistedState.candidateSha256,
     });
 
     const firstCreateCount = events.filter((event) => event === 'd1-create').length;
@@ -252,6 +262,7 @@ test('runDeployment performs the offline deployment contract in order and writes
     assert.equal(second.accountId, result.accountId);
     assert.equal(second.workerOrigin, result.workerOrigin);
     assert.equal(events.filter((event) => event === 'd1-create').length, firstCreateCount);
+    assert.ok(events.includes('worker-settings'));
     assert.equal(secretInputs.filter(({ args }) => args[2] === 'TOKEN_VAULT_KEY').length, 1);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
@@ -288,6 +299,12 @@ for (const [label, relativePath] of [
   ['release record file', 'release-record.json'],
   ['audit report file', 'audit-report.md'],
   ['local runtime directory', 'runtime/state.json'],
+  ['legacy directory', 'legacy/marker.txt'],
+  ['legacy artifacts directory', 'legacy-artifacts/marker.txt'],
+  ['artifact directory', 'artifact/marker.txt'],
+  ['artifacts directory', 'artifacts/marker.txt'],
+  ['old ZIP candidate artifact', 'old-release.zip'],
+  ['legacy ZIP candidate artifact', 'release/legacy-artifacts/community-0.8.0.zip'],
 ]) {
   test(`candidate ${label} fails before any network or create call`, async () => {
     const fixture = await createCandidate();
@@ -315,6 +332,72 @@ for (const [label, relativePath] of [
     }
   });
 }
+
+for (const [label, mutate] of [
+  ['missing source provenance', async (path) => { await rm(path, { force: true }); }],
+  ['invalid source provenance', async (path) => {
+    await writeFile(path, JSON.stringify({ edition: 'community', targetVersion: '0.8.0', sourceCommit: 'not-a-commit' }) + '\n');
+  }],
+]) {
+  test(`candidate ${label} fails before any network or create call`, async () => {
+    const fixture = await createCandidate();
+    const events = [];
+    const remote = configureRemote();
+    try {
+      await mutate(join(fixture.root, 'PROVENANCE.json'));
+      const { runDeployment } = await import('../deploy-core.mjs');
+      await assert.rejects(
+        runDeployment({
+          repoRoot: fixture.root,
+          envPath: fixture.envPath,
+          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          fetchImpl: createFetchMock({ events, remote }),
+          spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
+          fsImpl: createFsSpy(events),
+        }),
+        (error) => error.code === 'CANDIDATE_PROVENANCE_FAILED'
+      );
+      assert.deepEqual(events, []);
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+}
+
+test('malformed Worker settings fail closed before reuse or resource creation', async () => {
+  const fixture = await createCandidate();
+  const events = [];
+  const remote = configureRemote();
+  const secretInputs = [];
+  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  try {
+    const { runDeployment } = await import('../deploy-core.mjs');
+    await runDeployment({
+      repoRoot: fixture.root,
+      envPath: fixture.envPath,
+      statePath,
+      fetchImpl: createFetchMock({ events, remote }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      fsImpl: createFsSpy(events),
+    });
+    remote.settings = [];
+    await assert.rejects(
+      runDeployment({
+        repoRoot: fixture.root,
+        envPath: fixture.envPath,
+        statePath,
+        fetchImpl: createFetchMock({ events, remote }),
+        spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+        fsImpl: createFsSpy(events),
+      }),
+      (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID'
+    );
+    assert.equal(events.filter((event) => event === 'd1-create').length, 1);
+    assert.equal(events.filter((event) => event === 'deploy').length, 1);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
 
 test('candidate fingerprint covers the complete extension and Worker trees', async () => {
   const fixture = await createCandidate();
