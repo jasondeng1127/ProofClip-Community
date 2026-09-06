@@ -123,6 +123,10 @@ async function cleanupCandidate(fixture) {
   await rm(fixture.sidecarPath, { force: true });
 }
 
+function canonicalStatePath(root) {
+  return join(root, 'deploy', '.state', 'deployment-state.json');
+}
+
 async function createCandidate() {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-community-0.8.1-'));
   await mkdir(join(root, 'extension', 'src'), { recursive: true });
@@ -379,7 +383,7 @@ test('candidate provenance failure happens before credentials or resource creati
       runDeployment({
         repoRoot: fixture.root,
         envPath: fixture.envPath,
-        statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+        statePath: canonicalStatePath(fixture.root),
         fetchImpl: createFetchMock({ events, remote }),
         spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
         fsImpl: createFsSpy(events),
@@ -417,7 +421,7 @@ for (const [label, relativePath] of [
         runDeployment({
           repoRoot: fixture.root,
           envPath: fixture.envPath,
-          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          statePath: canonicalStatePath(fixture.root),
           fetchImpl: createFetchMock({ events, remote }),
           spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
           fsImpl: createFsSpy(events),
@@ -448,7 +452,7 @@ for (const [label, mutate] of [
         runDeployment({
           repoRoot: fixture.root,
           envPath: fixture.envPath,
-          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          statePath: canonicalStatePath(fixture.root),
           fetchImpl: createFetchMock({ events, remote }),
           spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
           fsImpl: createFsSpy(events),
@@ -474,7 +478,7 @@ async function assertCandidateIntegrityFailure(label, mutate) {
         runDeployment({
           repoRoot: fixture.root,
           envPath: fixture.envPath,
-          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          statePath: canonicalStatePath(fixture.root),
           fetchImpl: createFetchMock({ events, remote }),
           spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
           fsImpl: createFsSpy(events),
@@ -542,7 +546,7 @@ test('candidate fixed Community public key is required before network or create 
       runDeployment({
         repoRoot: fixture.root,
         envPath: fixture.envPath,
-        statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+        statePath: canonicalStatePath(fixture.root),
         fetchImpl: createFetchMock({ events, remote }),
         spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
         fsImpl: createFsSpy(events),
@@ -555,12 +559,38 @@ test('candidate fixed Community public key is required before network or create 
   }
 });
 
+test('noncanonical in-candidate state paths cannot exempt candidate files', async () => {
+  const fixture = await createCandidate();
+  const events = [];
+  const remote = configureRemote();
+  const statePath = join(fixture.root, 'worker', 'src', 'worker.mjs');
+  try {
+    await writeFile(statePath, 'export const workerFixture = false;\n');
+    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
+    const { runDeployment } = await import('../deploy-core.mjs');
+    await assert.rejects(
+      runDeployment({
+        repoRoot: fixture.root,
+        envPath: fixture.envPath,
+        statePath,
+        fetchImpl: createFetchMock({ events, remote }),
+        spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
+        fsImpl: createFsSpy(events),
+      }),
+      (error) => error.code === 'DEPLOYMENT_STATE_INVALID'
+    );
+    assert.deepEqual(events, []);
+  } finally {
+    await cleanupCandidate(fixture);
+  }
+});
+
 test('malformed Worker settings fail closed before reuse or resource creation', async () => {
   const fixture = await createCandidate();
   const events = [];
   const remote = configureRemote();
   const secretInputs = [];
-  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  const statePath = canonicalStatePath(fixture.root);
   try {
     const { runDeployment } = await import('../deploy-core.mjs');
     await runDeployment({
@@ -620,7 +650,7 @@ test('worktree-style Git HEAD is authoritative over mismatched candidate provena
       runDeployment({
         repoRoot: fixture.root,
         envPath: fixture.envPath,
-        statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+        statePath: canonicalStatePath(fixture.root),
         fetchImpl: createFetchMock({ events, remote }),
         spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
         fsImpl: createFsSpy(events),
@@ -640,7 +670,7 @@ test('candidate fingerprint preserves non-UTF-8 staged bytes', async () => {
   const events = [];
   const remote = configureRemote();
   const secretInputs = [];
-  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  const statePath = canonicalStatePath(fixture.root);
   try {
     await writeFile(bytePath, Buffer.from([0xff, 0x00]));
     await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
@@ -676,7 +706,7 @@ test('candidate fingerprint covers the complete extension and Worker trees', asy
   const events = [];
   const remote = configureRemote();
   const secretInputs = [];
-  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  const statePath = canonicalStatePath(fixture.root);
   try {
     const { runDeployment } = await import('../deploy-core.mjs');
     await runDeployment({
@@ -721,7 +751,7 @@ test('invalid Cloudflare credentials stop before D1 creation and deployment', as
       runDeployment({
         repoRoot: fixture.root,
         envPath: fixture.envPath,
-        statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+        statePath: canonicalStatePath(fixture.root),
         fetchImpl: async (url) => {
           events.push(url);
           return { status: 401, async json() { return { success: false, errors: [{ message: SENTINELS.notionClientSecret }] }; } };
@@ -764,7 +794,7 @@ test('subprocess failures never carry secret output into thrown errors or final 
       await runDeployment({
         repoRoot: fixture.root,
         envPath: fixture.envPath,
-        statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+        statePath: canonicalStatePath(fixture.root),
         fetchImpl: createFetchMock({ events, remote }),
         spawnImpl,
         fsImpl: createFsSpy(events),
@@ -788,7 +818,7 @@ test('reported Worker origin mismatch fails closed before state write', async ()
   const secretInputs = [];
   try {
     const { runDeployment } = await import('../deploy-core.mjs');
-    const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+    const statePath = canonicalStatePath(fixture.root);
     await assert.rejects(
       runDeployment({
         repoRoot: fixture.root,
@@ -831,7 +861,7 @@ for (const [label, health] of [
         runDeployment({
           repoRoot: fixture.root,
           envPath: fixture.envPath,
-          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          statePath: canonicalStatePath(fixture.root),
           fetchImpl: createFetchMock({ events, remote, health }),
           spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
           fsImpl: createFsSpy(events),

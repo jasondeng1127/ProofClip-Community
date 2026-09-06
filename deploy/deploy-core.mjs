@@ -20,6 +20,7 @@ const WORKER_NAME = 'proofclip-community';
 const D1_NAME = 'proofclip-community';
 const VERSION = '0.8.1';
 const MARKER = 'community-0.8.1';
+const CANONICAL_STATE_PATH = 'deploy/.state/deployment-state.json';
 const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
 const STABLE_MANIFEST_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
 const REQUIRED_FILES = [
@@ -248,15 +249,18 @@ function sha256Bytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function isDeploymentStateFile(relativePath, stateRelativePath) {
+function isDeploymentStateFile(relativePath) {
   const normalized = normalizeRelative(relativePath);
-  return stateRelativePath !== null && normalized === stateRelativePath;
+  return normalized === CANONICAL_STATE_PATH;
 }
 
 async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
   try {
     const root = candidate.root;
     const stateRelativePath = pathWithin(root, statePath) ? normalizeRelative(relative(root, statePath)) : null;
+    if (stateRelativePath && stateRelativePath !== CANONICAL_STATE_PATH) {
+      fail('DEPLOYMENT_STATE_INVALID', 'The deployment state path must use the canonical candidate-relative location.');
+    }
     const provenance = JSON.parse(textValue(await fsImpl.readFile(join(root, 'PROVENANCE.json'), 'utf8')));
     if (
       provenance?.schemaVersion !== 1
@@ -272,7 +276,7 @@ async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
     const files = [];
     for (const file of await walkFiles(fsImpl, root)) {
       // Deployment state is generated after health succeeds and is not candidate content.
-      if (file.relativePath === 'PROVENANCE.json' || isDeploymentStateFile(file.relativePath, stateRelativePath)) continue;
+      if (file.relativePath === 'PROVENANCE.json' || isDeploymentStateFile(file.relativePath)) continue;
       const bytes = await fsImpl.readFile(file.path);
       files.push({ path: file.relativePath, sha256: sha256Bytes(bytes) });
     }
