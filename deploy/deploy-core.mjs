@@ -21,6 +21,7 @@ const D1_NAME = 'proofclip-community';
 const VERSION = '0.8.1';
 const MARKER = 'community-0.8.1';
 const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
+const STABLE_MANIFEST_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
 const REQUIRED_FILES = [
   'extension/src/manifest.json',
   'worker/src/worker.mjs',
@@ -225,6 +226,7 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
     decodeManifestKey(manifest.key);
     extensionId = deriveExtensionId(manifest.key);
   } catch { fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate manifest key is invalid.'); }
+  if (manifest.key !== STABLE_MANIFEST_KEY) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate manifest key does not match the fixed Community public identity.');
   if (extensionId !== STABLE_EXTENSION_ID) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate manifest key does not match the stable Community identity.');
 
   const identityFiles = files
@@ -240,6 +242,69 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
   const candidateSha256 = hash.digest('hex');
   const candidateCommit = await readCandidateCommit({ root, fsImpl });
   return { root, extensionId, candidateCommit, candidateSha256 };
+}
+
+function sha256Bytes(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function isDeploymentStateFile(relativePath, stateRelativePath) {
+  const normalized = normalizeRelative(relativePath);
+  return stateRelativePath !== null && normalized === stateRelativePath;
+}
+
+async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
+  try {
+    const root = candidate.root;
+    const stateRelativePath = pathWithin(root, statePath) ? normalizeRelative(relative(root, statePath)) : null;
+    const provenance = JSON.parse(textValue(await fsImpl.readFile(join(root, 'PROVENANCE.json'), 'utf8')));
+    if (
+      provenance?.schemaVersion !== 1
+      || provenance?.edition !== 'community'
+      || provenance?.targetVersion !== VERSION
+      || provenance?.candidateVersion !== VERSION
+      || !/^[0-9a-f]{40}$/i.test(String(provenance?.sourceCommit || ''))
+      || provenance.sourceCommit !== candidate.candidateCommit
+    ) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance identity is invalid.');
+    }
+
+    const files = [];
+    for (const file of await walkFiles(fsImpl, root)) {
+      // Deployment state is generated after health succeeds and is not candidate content.
+      if (file.relativePath === 'PROVENANCE.json' || isDeploymentStateFile(file.relativePath, stateRelativePath)) continue;
+      const bytes = await fsImpl.readFile(file.path);
+      files.push({ path: file.relativePath, sha256: sha256Bytes(bytes) });
+    }
+    files.sort((left, right) => left.path.localeCompare(right.path));
+    if (!Array.isArray(provenance.files) || JSON.stringify(provenance.files) !== JSON.stringify(files)) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance file list or file hash is invalid.');
+    }
+
+    const contentFingerprint = sha256Bytes(Buffer.from(files.map((file) => `${file.path}:${file.sha256}`).join('\n'), 'utf8'));
+    if (provenance.contentFingerprint !== contentFingerprint) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate content fingerprint is invalid.');
+    }
+
+    const bundle = files.find((file) => file.path === 'worker/dist/worker.mjs');
+    if (
+      provenance.bundle?.path !== 'worker/dist/worker.mjs'
+      || provenance.bundle?.sourcePath !== 'worker/scripts/bundle-worker.mjs'
+      || !bundle
+      || provenance.bundle?.sha256 !== bundle.sha256
+    ) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate Worker bundle provenance is invalid.');
+    }
+
+    const sidecarText = textValue(await fsImpl.readFile(`${root}.sha256`, 'utf8')).trim();
+    const sidecar = sidecarText.match(/^([0-9a-f]{64})\s+(.+)$/i);
+    if (!sidecar || sidecar[1] !== contentFingerprint || sidecar[2].trim() !== basename(root)) {
+      fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance sidecar is invalid.');
+    }
+  } catch (error) {
+    if (error instanceof DeployError) throw error;
+    fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance integrity record is missing or invalid.');
+  }
 }
 
 async function readCandidateCommit({ root, fsImpl }) {
@@ -423,6 +488,7 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
   const finalStatePath = resolve(statePath || join(root, 'deploy', '.state', 'deployment-state.json'));
 
   const candidate = await validateCandidate({ repoRoot: root, envPath: envFile, fsImpl });
+  await validateCandidateIntegrity({ candidate, statePath: finalStatePath, fsImpl });
   const env = await loadEnvironment({ repoRoot: root, envPath: envFile, fsImpl });
   registerRedactionSecret(env.cfApiToken);
 
