@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -6,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import test from 'node:test';
 
 import { readStableExtensionIdentity } from '../lib/identity.mjs';
@@ -16,12 +18,58 @@ const templatePath = join(repoRoot, 'deploy', 'wrangler.template.jsonc');
 const stableIdentity = await readStableExtensionIdentity(manifestPath);
 const stableExtensionOrigin = `chrome-extension://${stableIdentity.extensionId}`;
 const CANDIDATE_SOURCE_COMMIT = 'a'.repeat(40);
+const execFileAsync = promisify(execFile);
 
 const SENTINELS = {
   cfApiToken: 'cf-api-token-sentinel',
   notionClientId: 'notion-client-id-sentinel',
   notionClientSecret: 'notion-client-secret-sentinel',
 };
+
+async function runCli(args) {
+  try {
+    const result = await execFileAsync(process.execPath, [join(repoRoot, 'deploy', 'deploy-core.mjs'), ...args], {
+      cwd: repoRoot,
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+    });
+    return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
+  } catch (error) {
+    return {
+      exitCode: typeof error.code === 'number' ? error.code : 1,
+      stdout: error.stdout || '',
+      stderr: error.stderr || '',
+    };
+  }
+}
+
+function assertSafeCliFailure(result, code) {
+  assert.notEqual(result.exitCode, 0);
+  assert.equal(result.stderr, '');
+  assert.match(result.stdout, new RegExp(`^FAILURE: ${code}\\nExplanation: [^\\n]+\\nNext action: [^\\n]+\\n?$`));
+  assert.doesNotMatch(result.stdout, /Error| at |cf-api-token-sentinel|notion-client-secret-sentinel|TOKEN_VAULT_KEY/i);
+}
+
+test('direct CLI rejects malformed or extra arguments with a stable safe failure', async () => {
+  for (const args of [
+    [],
+    ['--unknown'],
+    ['--env'],
+    ['--env', 'deploy/deploy.env', 'extra'],
+    ['--env=deploy/deploy.env'],
+  ]) {
+    const result = await runCli(args);
+    assertSafeCliFailure(result, 'DEPLOYMENT_ARGS_INVALID');
+  }
+});
+
+test('direct CLI missing-env invocation fails safely before network access', async () => {
+  const result = await runCli(['--env', join('deploy', 'missing-task-6.env')]);
+  assert.notEqual(result.exitCode, 0);
+  assert.equal(result.stderr, '');
+  assert.match(result.stdout, /^FAILURE: (?:DEPLOY_ENV_MISSING|CANDIDATE_PROVENANCE_FAILED)\nExplanation: [^\n]+\nNext action: [^\n]+\n?$/);
+  assert.doesNotMatch(result.stdout, /Error| at |Cloudflare|https:\/\/api\.cloudflare\.com|cf-api-token|notion-client-secret|TOKEN_VAULT_KEY/i);
+});
 
 async function createCandidate() {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-community-0.8.1-'));

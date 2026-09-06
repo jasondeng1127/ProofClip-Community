@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { access, cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -14,6 +15,7 @@ import { createStagingTree } from './lib/staging.mjs';
 import { createWranglerRunner } from './lib/wrangler.mjs';
 
 const execFileAsync = promisify(execFile);
+const MODULE_PATH = fileURLToPath(import.meta.url);
 const WORKER_NAME = 'proofclip-community';
 const D1_NAME = 'proofclip-community';
 const VERSION = '0.8.1';
@@ -176,6 +178,20 @@ async function loadEnvironment({ repoRoot, envPath, fsImpl }) {
     }
     fail('DEPLOY_ENV_INVALID', 'deploy.env is invalid.');
   }
+}
+
+function parseCliArgs(args) {
+  if (
+    !Array.isArray(args)
+    || args.length !== 2
+    || args[0] !== '--env'
+    || typeof args[1] !== 'string'
+    || args[1].trim() === ''
+    || args[1].startsWith('-')
+  ) {
+    fail('DEPLOYMENT_ARGS_INVALID', 'Deployment arguments are invalid.');
+  }
+  return args[1];
 }
 
 async function validateCandidate({ repoRoot, envPath, fsImpl }) {
@@ -537,6 +553,7 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
 }
 
 const FAILURE_GUIDANCE = {
+  DEPLOYMENT_ARGS_INVALID: ['Deployment arguments are invalid.', 'Invoke the deployer with exactly --env <path>.'],
   DEPLOY_ENV_MISSING: ['deploy.env is missing.', 'Create it from deploy.env.example and provide the three required values.'],
   NOTION_CREDENTIALS_MISSING: ['The Notion client credentials are missing.', 'Provide the client ID and client secret from the same Notion integration.'],
   CLOUDFLARE_AUTH_FAILED: ['Cloudflare authentication failed.', 'Check the API token and run the deployment again.'],
@@ -567,4 +584,25 @@ export function formatFinalSummary(result) {
   const code = typeof result?.code === 'string' && /^[A-Z0-9_]+$/.test(result.code) ? result.code : 'DEPLOYMENT_FAILED';
   const [explanation, nextAction] = FAILURE_GUIDANCE[code] || ['Deployment failed.', 'Review the stable failure code and correct the local deployment inputs.'];
   return [`FAILURE: ${code}`, `Explanation: ${explanation}`, `Next action: ${nextAction}`].join('\n');
+}
+
+async function runDirectCli(args) {
+  try {
+    const repoRoot = resolve(dirname(MODULE_PATH), '..');
+    const envPath = resolve(repoRoot, parseCliArgs(args));
+    const statePath = join(repoRoot, 'deploy', '.state', 'deployment-state.json');
+    const result = await runDeployment({ repoRoot, envPath, statePath });
+    process.stdout.write(`${formatFinalSummary(result)}\n`);
+    return 0;
+  } catch (error) {
+    const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/.test(error.code)
+      ? error.code
+      : 'DEPLOYMENT_FAILED';
+    process.stdout.write(`${formatFinalSummary({ ok: false, code })}\n`);
+    return 1;
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === MODULE_PATH) {
+  process.exitCode = await runDirectCli(process.argv.slice(2));
 }
