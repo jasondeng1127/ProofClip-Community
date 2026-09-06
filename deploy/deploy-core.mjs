@@ -301,10 +301,7 @@ async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
     }
 
     const sidecarText = textValue(await fsImpl.readFile(`${root}.sha256`, 'utf8'));
-    const sidecarLine = sidecarText.endsWith('\n')
-      ? sidecarText.slice(0, -1).replace(/\r$/, '')
-      : sidecarText;
-    const sidecar = !/[\r\n]/.test(sidecarLine) && /^([0-9a-f]{64})\s{2,}([^\s]+)$/.exec(sidecarLine);
+    const sidecar = /^([0-9a-f]{64})  ([^\s\r\n]+)\n$/.exec(sidecarText);
     if (!sidecar || sidecar[1] !== contentFingerprint || sidecar[2] !== basename(root)) {
       fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate provenance sidecar is invalid.');
     }

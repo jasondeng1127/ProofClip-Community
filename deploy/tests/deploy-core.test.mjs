@@ -531,8 +531,12 @@ for (const [label, mutate] of [
   ['leading whitespace', (sidecar) => ` ${sidecar}`],
   ['trailing whitespace', (sidecar) => sidecar.replace(/\n$/, ' \n')],
   ['blank trailing line', (sidecar) => `${sidecar}\n`],
+  ['missing final LF', (sidecar) => sidecar.replace(/\n$/, '')],
+  ['CRLF final newline', (sidecar) => sidecar.replace(/\n$/, '\r\n')],
   ['single-space separator', (sidecar) => sidecar.replace('  ', ' ')],
+  ['three-space separator', (sidecar) => sidecar.replace('  ', '   ')],
   ['single-tab separator', (sidecar) => sidecar.replace('  ', '\t')],
+  ['mixed separator', (sidecar) => sidecar.replace('  ', ' \t')],
 ]) {
   await assertCandidateIntegrityFailure(`sidecar ${label}`, async ({ root }) => {
     const sidecarPath = `${root}.sha256`;
