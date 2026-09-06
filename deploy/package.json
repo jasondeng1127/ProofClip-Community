@@ -1,0 +1,11 @@
+{
+  "name": "proofclip-community-deploy",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "wrangler": "4.129.0"
+  }
+}

@@ -5,6 +5,10 @@
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+deploy/deploy.env
+deploy/node_modules/
+deploy/.generated/
+deploy/.state/
 wrangler.jsonc
 .wrangler/
 
