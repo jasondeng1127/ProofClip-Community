@@ -9,13 +9,15 @@ This leads to a simple product philosophy: capture with as little friction as po
 
 The tool should stay out of the way when it is not needed and be reliable when it is.
 
-## Latest release — v0.8.0
+## Latest release — v0.8.1
 
-**ProofClip Community 0.8.0 is now available.**
+**ProofClip Community 0.8.1 deployment path is now available.**
 
-This release strengthens the capture-to-Notion workflow, content handling, mapping accuracy, and delivery reliability while keeping ProofClip Community local-first and under the deployer's control.
+Community 0.8.1 adds a one-command, deployer-owned deployment path while
+keeping the existing 0.8.0 runtime baseline local-first and under the
+deployer's control.
 
-### What's improved in v0.8.0
+### Runtime capabilities carried from v0.8.0
 
 - **Richer full-page capture** — improved structured extraction preserves more of the original reading context, including headings, paragraphs, lists, links, and supported images in their natural order.
 - **Better long-page handling** — strengthened long-page extraction and fallback behavior for more reliable capture of large documents and research material.
@@ -24,7 +26,7 @@ This release strengthens the capture-to-Notion workflow, content handling, mappi
 - **More resilient capture and delivery** — strengthened local processing, delivery recovery, resend behavior, and duplicate-delivery protection across the capture-to-Notion path.
 - **Stronger privacy safeguards** — the self-hosted Worker is designed not to retain capture bodies or screenshots after the requested delivery.
 
-**[View v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Download v0.8.0](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Deployment guide](deploy/README.md)**
+**[View v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Download v0.8.0](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Community 0.8.1 one-command deployment guide](docs/community-0.8.1-deployment.md)**
 
 ## Choose the right path before you start
 
@@ -69,7 +71,7 @@ The Commercial edition is not currently available. When released, its intended p
 
 After the technical deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
 
-1. [Load the extension and configure its HTTPS API origin](deploy/README.md).
+1. [Run the Community 0.8.1 deployment path](docs/community-0.8.1-deployment.md), then load the generated extension directory.
 2. Connect the deployer's Notion integration, choose a Data Source, and map its required **Title** and **URL** properties.
 3. On a page you are researching, press `Alt+1`, `Alt+2`, or `Alt+3`; save locally by default or deliberately choose **Send to Notion** for that capture.
 4. Confirm the expected record in Notion: a title and source URL at minimum, plus the capture content and any optional mapped fields you selected.
@@ -78,6 +80,6 @@ The full, source-only loading path is in the [deployment guide](deploy/README.md
 
 ## Deploy your own Community instance
 
-ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. Each deployer configures its own extension ID and HTTPS API origin. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
+ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. The 0.8.1 deployment path derives the browser identity and prints the generated extension directory and HTTPS callback details needed for the two manual handoff actions. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
 
-Read [the deployment guide](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), and [Notion OAuth guide](docs/self-hosted-notion-oauth.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.
+Read [the one-command deployment guide](docs/community-0.8.1-deployment.md), [the deployment reference](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), and [Notion OAuth guide](docs/self-hosted-notion-oauth.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.
