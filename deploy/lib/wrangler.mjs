@@ -2,6 +2,21 @@ import { spawn } from 'node:child_process';
 
 import { DeployError, redactText, registerRedactionSecret } from './errors.mjs';
 
+const SECRET_ENV_NAMES = new Set([
+  'CF_API_TOKEN',
+  'CLOUDFLARE_API_TOKEN',
+  'NOTION_CLIENT_SECRET',
+  'TOKEN_VAULT_KEY',
+  'NOTION_CLIENT_ID'
+]);
+const SECRET_ENV_PATTERN = /(token|secret|vault|key|auth|password)/i;
+
+function registerSecretEnvironmentValues(environment) {
+  for (const [name, value] of Object.entries(environment)) {
+    if (SECRET_ENV_NAMES.has(name) || SECRET_ENV_PATTERN.test(name)) registerRedactionSecret(value);
+  }
+}
+
 function collect(stream) {
   return new Promise((resolve) => {
     const chunks = [];
@@ -20,38 +35,40 @@ export function createWranglerRunner({ binaryPath, cwd, env, spawnImpl = spawn }
     }
     for (const secret of redact) registerRedactionSecret(secret);
     const childEnv = { ...process.env, ...(env || {}) };
-    for (const key of ['CF_API_TOKEN', 'CLOUDFLARE_API_TOKEN']) {
-      registerRedactionSecret(childEnv[key]);
-    }
+    registerSecretEnvironmentValues(childEnv);
     if (input !== undefined && input !== null) {
       registerRedactionSecret(Buffer.isBuffer(input) ? input.toString('utf8') : String(input));
     }
 
-    let child;
-    try {
-      child = spawnImpl(binaryPath, args, {
-        cwd,
-        env: childEnv,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true
-      });
-    } catch (error) {
-      throw new DeployError('WRANGLER_FAILED', redactText(`Wrangler could not start: ${error?.message || 'spawn failed'}`));
-    }
-
-    const stdoutPromise = collect(child.stdout);
-    const stderrPromise = collect(child.stderr);
-
-    if (child.stdin) child.stdin.end(input === undefined ? undefined : input);
-
     return new Promise((resolve, reject) => {
+      let child;
+      try {
+        child = spawnImpl(binaryPath, args, {
+          cwd,
+          env: childEnv,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true
+        });
+      } catch (error) {
+        reject(new DeployError('WRANGLER_FAILED', redactText(`Wrangler could not start: ${error?.message || 'spawn failed'}`)));
+        return;
+      }
+
+      const stdoutPromise = collect(child.stdout);
+      const stderrPromise = collect(child.stderr);
+      let settled = false;
       child.once('error', (error) => {
+        if (settled) return;
+        settled = true;
         reject(new DeployError('WRANGLER_FAILED', redactText(`Wrangler execution failed: ${error?.message || 'child process error'}`)));
       });
       child.once('close', async (code) => {
+        if (settled) return;
         const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
+        settled = true;
         resolve({ code, stdout: redactText(stdout), stderr: redactText(stderr) });
       });
+      if (child.stdin) child.stdin.end(input === undefined ? undefined : input);
     });
   }
 

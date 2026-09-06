@@ -91,13 +91,98 @@ for (const [label, response] of [
   });
 }
 
+for (const [label, method] of [
+  ['Worker list', (client) => client.getWorkers('account-id')],
+  ['D1 list', (client) => client.getD1Databases('account-id')]
+]) {
+  test(`${label} rejects a non-array result shape`, async () => {
+    const client = createCloudflareClient({
+      apiToken: 'cf-api-token-sentinel',
+      fetchImpl: async () => jsonResponse(200, { success: true, result: { not: 'a list' } })
+    });
+    await assert.rejects(method(client), (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID');
+  });
+}
+
+test('missing Worker discovery result fails before ownership can create D1', async () => {
+  const calls = [];
+  const cloudflare = createCloudflareClient({
+    apiToken: 'cf-api-token-sentinel',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      const path = new URL(url).pathname;
+      if (path.endsWith('/user/tokens/verify')) return jsonResponse(200, { success: true, result: {} });
+      if (path.endsWith('/accounts')) return jsonResponse(200, { success: true, result: [{ id: 'account-id' }] });
+      if (path.endsWith('/workers/scripts')) return jsonResponse(200, { success: true });
+      throw new Error(`unexpected URL ${url}`);
+    }
+  });
+
+  await assert.rejects(
+    resolveDeploymentResources({
+      cloudflare,
+      state: null,
+      candidate: {
+        extensionId: 'extension-id-sentinel',
+        workerOrigin: 'https://worker.example',
+        candidateCommit: 'candidate-commit-sentinel',
+        candidateSha256: 'candidate-sha256-sentinel'
+      },
+      names: { workerName: 'proofclip-community', d1Name: 'proofclip-community', marker: 'community-0.8.1' }
+    }),
+    (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID'
+  );
+  assert.equal(calls.some(({ options }) => options.method === 'POST'), false);
+});
+
+test('missing D1 discovery result fails before ownership can create D1', async () => {
+  const calls = [];
+  const cloudflare = createCloudflareClient({
+    apiToken: 'cf-api-token-sentinel',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      const path = new URL(url).pathname;
+      if (path.endsWith('/user/tokens/verify')) return jsonResponse(200, { success: true, result: {} });
+      if (path.endsWith('/accounts')) return jsonResponse(200, { success: true, result: [{ id: 'account-id' }] });
+      if (path.endsWith('/workers/scripts')) return jsonResponse(200, { success: true, result: [] });
+      if (path.endsWith('/d1/database')) return jsonResponse(200, { success: true });
+      throw new Error(`unexpected URL ${url}`);
+    }
+  });
+
+  await assert.rejects(
+    resolveDeploymentResources({
+      cloudflare,
+      state: null,
+      candidate: {
+        extensionId: 'extension-id-sentinel',
+        workerOrigin: 'https://worker.example',
+        candidateCommit: 'candidate-commit-sentinel',
+        candidateSha256: 'candidate-sha256-sentinel'
+      },
+      names: { workerName: 'proofclip-community', d1Name: 'proofclip-community', marker: 'community-0.8.1' }
+    }),
+    (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID'
+  );
+  assert.equal(calls.some(({ options }) => options.method === 'POST'), false);
+});
+
+test('singular Cloudflare results must be non-array objects', async () => {
+  const client = createCloudflareClient({
+    apiToken: 'cf-api-token-sentinel',
+    fetchImpl: async () => jsonResponse(200, { success: true, result: [] })
+  });
+  await assert.rejects(client.createD1('account-id', 'proofclip-community'), (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID');
+  await assert.rejects(client.getWorkersDevSubdomain('account-id'), (error) => error.code === 'CLOUDFLARE_RESPONSE_INVALID');
+});
+
 test('Cloudflare client uses account-scoped resource endpoints and only creates D1 explicitly', async () => {
   const calls = [];
   const cloudflare = createCloudflareClient({
     apiToken: 'cf-api-token-sentinel',
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
-      if (url.endsWith('/user/tokens/verify')) return jsonResponse(200, { success: true });
+      if (url.endsWith('/user/tokens/verify')) return jsonResponse(200, { success: true, result: {} });
       if (url.endsWith('/accounts')) return jsonResponse(200, { success: true, result: [{ id: 'account-id' }] });
       if (url.endsWith('/workers/scripts')) return jsonResponse(200, { success: true, result: [{ id: 'worker-id', name: 'proofclip-community' }] });
       if (new URL(url).pathname.endsWith('/d1/database') && options.method !== 'POST') return jsonResponse(200, { success: true, result: [{ uuid: 'd1-id', name: 'proofclip-community' }] });
@@ -162,11 +247,17 @@ test('Wrangler automatically redacts the API token from env and the input channe
   const runner = createWranglerRunner({
     binaryPath: 'wrangler-sentinel',
     cwd: 'C:\\proofclip',
-    env: { CF_API_TOKEN: 'env-api-token-sentinel' },
+    env: {
+      CF_API_TOKEN: 'env-api-token-sentinel',
+      NOTION_CLIENT_SECRET: 'notion-client-secret-sentinel',
+      TOKEN_VAULT_KEY: 'token-vault-key-sentinel',
+      NOTION_CLIENT_ID: 'notion-client-id-sentinel',
+      CUSTOM_AUTH_PASSWORD: 'custom-auth-password-sentinel'
+    },
     spawnImpl: () => {
       queueMicrotask(() => {
-        child.stdout.end('env-api-token-sentinel input-channel-secret-sentinel');
-        child.stderr.end('env-api-token-sentinel');
+        child.stdout.end('env-api-token-sentinel notion-client-secret-sentinel token-vault-key-sentinel notion-client-id-sentinel custom-auth-password-sentinel input-channel-secret-sentinel');
+        child.stderr.end('env-api-token-sentinel notion-client-secret-sentinel token-vault-key-sentinel notion-client-id-sentinel custom-auth-password-sentinel');
         child.emit('close', 0);
       });
       return child;
@@ -174,8 +265,8 @@ test('Wrangler automatically redacts the API token from env and the input channe
   });
 
   const result = await runner.run(['deploy'], { input: 'input-channel-secret-sentinel' });
-  assert.doesNotMatch(result.stdout, /env-api-token-sentinel|input-channel-secret-sentinel/);
-  assert.doesNotMatch(result.stderr, /env-api-token-sentinel/);
+  assert.doesNotMatch(result.stdout, /env-api-token-sentinel|notion-client-secret-sentinel|token-vault-key-sentinel|notion-client-id-sentinel|custom-auth-password-sentinel|input-channel-secret-sentinel/);
+  assert.doesNotMatch(result.stderr, /env-api-token-sentinel|notion-client-secret-sentinel|token-vault-key-sentinel|notion-client-id-sentinel|custom-auth-password-sentinel/);
 });
 
 test('Wrangler redacts API token and input values from spawn errors without explicit redact values', async () => {
@@ -193,6 +284,46 @@ test('Wrangler redacts API token and input values from spawn errors without expl
     (error) => error.code === 'WRANGLER_FAILED'
       && !error.message.includes('env-api-token-error-sentinel')
       && !error.message.includes('input-error-secret-sentinel')
+  );
+});
+
+test('Wrangler sanitizes asynchronous child.error messages for all secret-bearing values', async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.stdin = new PassThrough();
+  const runner = createWranglerRunner({
+    binaryPath: 'wrangler-sentinel',
+    cwd: 'C:\\proofclip',
+    env: {
+      CF_API_TOKEN: 'async-api-token-sentinel',
+      NOTION_CLIENT_SECRET: 'async-client-secret-sentinel',
+      TOKEN_VAULT_KEY: 'async-vault-key-sentinel',
+      NOTION_CLIENT_ID: 'async-client-id-sentinel',
+      CUSTOM_AUTH_PASSWORD: 'async-password-sentinel'
+    },
+    spawnImpl: () => {
+      queueMicrotask(() => child.emit('error', new Error([
+        'async-api-token-sentinel',
+        'async-client-secret-sentinel',
+        'async-vault-key-sentinel',
+        'async-client-id-sentinel',
+        'async-password-sentinel',
+        'async-input-secret-sentinel'
+      ].join(' '))));
+      return child;
+    }
+  });
+
+  await assert.rejects(
+    runner.run(['deploy'], { input: 'async-input-secret-sentinel' }),
+    (error) => error.code === 'WRANGLER_FAILED'
+      && !error.message.includes('async-api-token-sentinel')
+      && !error.message.includes('async-client-secret-sentinel')
+      && !error.message.includes('async-vault-key-sentinel')
+      && !error.message.includes('async-client-id-sentinel')
+      && !error.message.includes('async-password-sentinel')
+      && !error.message.includes('async-input-secret-sentinel')
   );
 });
 

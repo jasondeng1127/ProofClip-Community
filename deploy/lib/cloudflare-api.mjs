@@ -23,6 +23,11 @@ function invalidResponse(operation) {
   return new DeployError('CLOUDFLARE_RESPONSE_INVALID', `Cloudflare ${operation} returned an invalid API response.`);
 }
 
+function assertResultShape(operation, result, shape) {
+  if (shape === 'array' && !Array.isArray(result)) throw invalidResponse(operation);
+  if (shape === 'object' && (!result || typeof result !== 'object' || Array.isArray(result))) throw invalidResponse(operation);
+}
+
 export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
   requiredText('apiToken', apiToken);
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
@@ -30,7 +35,7 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
 
   let verification;
 
-  async function request(operation, path, { method = 'GET', body } = {}) {
+  async function request(operation, path, { method = 'GET', body, resultShape } = {}) {
     const url = `${API_BASE}${path}`;
     let response;
     try {
@@ -65,23 +70,24 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
       throw invalidResponse(operation);
     }
     if (!payload || payload.success !== true) throw invalidResponse(operation);
+    assertResultShape(operation, payload.result, resultShape);
     return payload?.result;
   }
 
   async function verifyToken() {
     if (!verification) {
-      verification = request('verify token', '/user/tokens/verify').then((result) => result ?? {});
+      verification = request('verify token', '/user/tokens/verify', { resultShape: 'object' });
     }
     return verification;
   }
 
   async function listAccounts() {
     await verifyToken();
-    return (await request('account discovery', '/accounts?per_page=50')) ?? [];
+    return request('account discovery', '/accounts?per_page=50', { resultShape: 'array' });
   }
 
   async function getWorkers(accountId) {
-    return (await request('Worker discovery', `/accounts/${pathSegment(accountId)}/workers/scripts`)) ?? [];
+    return request('Worker discovery', `/accounts/${pathSegment(accountId)}/workers/scripts`, { resultShape: 'array' });
   }
 
   async function getWorker(accountId, workerName) {
@@ -90,7 +96,7 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
   }
 
   async function getD1Databases(accountId) {
-    return (await request('D1 discovery', `/accounts/${pathSegment(accountId)}/d1/database?per_page=100`)) ?? [];
+    return request('D1 discovery', `/accounts/${pathSegment(accountId)}/d1/database?per_page=100`, { resultShape: 'array' });
   }
 
   async function getD1(accountId, d1Name) {
@@ -101,12 +107,13 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
   async function createD1(accountId, d1Name) {
     return request('D1 creation', `/accounts/${pathSegment(accountId)}/d1/database`, {
       method: 'POST',
-      body: { name: requiredText('d1Name', d1Name) }
+      body: { name: requiredText('d1Name', d1Name) },
+      resultShape: 'object'
     });
   }
 
   async function getWorkersDevSubdomain(accountId) {
-    return request('Workers.dev subdomain lookup', `/accounts/${pathSegment(accountId)}/workers/subdomain`);
+    return request('Workers.dev subdomain lookup', `/accounts/${pathSegment(accountId)}/workers/subdomain`, { resultShape: 'object' });
   }
 
   return {
