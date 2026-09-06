@@ -23,12 +23,14 @@ const REQUIRED_FILES = [
   'extension/src/manifest.json',
   'extension/src/community-config.mjs',
   'worker/src/worker.mjs',
+  'worker/src/index.mjs',
   'worker/src/schema.sql',
   'worker/migrations/20260813_privacy_nonretention.sql',
   'worker/scripts/bundle-worker.mjs',
   'worker/dist/worker.mjs',
   'deploy/deploy.ps1',
   'deploy/deploy.sh',
+  'deploy/deploy.env.example',
   'deploy/wrangler.template.jsonc',
   'docs/community-0.8.1-deployment.md',
   'README.md',
@@ -54,6 +56,18 @@ export const defaultGit = {
       return null;
     }
   },
+  listFiles(repoRoot) {
+    try {
+      return execFileSync('git', ['-C', repoRoot, 'ls-files', '-z', '--'], { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString('utf8')
+        .split('\0')
+        .filter(Boolean)
+        .map(KEY)
+        .sort();
+    } catch {
+      return null;
+    }
+  },
 };
 
 async function walkFiles(root) {
@@ -70,34 +84,36 @@ async function walkFiles(root) {
   return files;
 }
 
-function includeDeployPath(path) {
-  const segments = path.split('/');
-  return !segments.includes('node_modules')
-    && !segments.includes('.generated')
-    && !segments.includes('.state')
-    && !segments.includes('.wrangler')
-    && !['deploy.env', '.dev.vars', '.dev.vars.example'].includes(segments.at(-1));
-}
-
-function sourceAllowlist(sourceRoot) {
-  return [
-    ...ROOT_FILES,
-    'docs/community-0.8.1-deployment.md',
-  ].map((path) => ({ source: join(sourceRoot, path), output: path }));
-}
-
-async function collectAllowlistedFiles(sourceRoot) {
-  const entries = sourceAllowlist(sourceRoot);
-  for (const root of ['extension/src', 'worker/src', 'worker/migrations', 'worker/scripts', 'deploy']) {
-    const source = join(sourceRoot, root);
-    for (const file of await walkFiles(source)) {
-      const output = KEY(relative(sourceRoot, file));
-      if (root === 'deploy' && !includeDeployPath(output.slice('deploy/'.length))) continue;
-      if (root === 'worker/src' && output.startsWith('worker/src/dist/')) continue;
-      entries.push({ source: file, output });
-    }
+function isProductionPath(path) {
+  const normalized = KEY(path);
+  if (normalized === 'PROVENANCE.json') return false;
+  if (ROOT_FILES.has(normalized) || normalized === 'docs/community-0.8.1-deployment.md') return true;
+  const segments = normalized.split('/');
+  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
+  if (/\.(test|spec)\.[^/]+$/i.test(normalized)) return false;
+  if (/\.(?:key|pem)$/i.test(normalized)) return false;
+  if (normalized.startsWith('extension/src/')) return true;
+  if (normalized.startsWith('worker/src/')) return !normalized.startsWith('worker/src/dist/');
+  if (normalized.startsWith('worker/migrations/')) return true;
+  if (normalized.startsWith('worker/scripts/')) return true;
+  if (normalized.startsWith('deploy/')) {
+    const fileName = segments.at(-1);
+    return fileName !== 'deploy.env' && !/^\.dev\.vars(?:\.example)?$/i.test(fileName) && !normalized.endsWith('/worker/dist/worker.mjs');
   }
-  return entries.sort((a, b) => a.output.localeCompare(b.output));
+  return false;
+}
+
+async function collectAllowlistedFiles(sourceRoot, trackedFiles) {
+  if (!Array.isArray(trackedFiles)) throw new Error('tracked Git file list is unavailable; refusing to export from the working tree');
+  const entries = [];
+  for (const trackedPath of [...new Set(trackedFiles.map(KEY))].sort()) {
+    if (!isProductionPath(trackedPath)) continue;
+    if (trackedPath.startsWith('../') || trackedPath.startsWith('/') || /^[A-Za-z]:\//.test(trackedPath)) {
+      throw new Error(`invalid tracked path: ${trackedPath}`);
+    }
+    entries.push({ source: join(sourceRoot, ...trackedPath.split('/')), output: trackedPath });
+  }
+  return entries;
 }
 
 async function assertSourceFile(entry) {
@@ -143,9 +159,10 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   const candidateDir = resolve(outDir);
 
   const sourceCommit = await Promise.resolve(gitImpl.revParse(source));
-  if (!sourceCommit) throw new Error('clean source commit required: git rev-parse HEAD failed');
+  if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit || ''))) throw new Error('clean source commit required: git rev-parse HEAD must return the full 40-character commit');
   const status = await Promise.resolve(gitImpl.statusPorcelain(source));
   if (status === null || String(status).trim()) throw new Error('clean source tree required: source tree is dirty');
+  const trackedFiles = await Promise.resolve(gitImpl.listFiles(source));
 
   await access(source);
   await mkdir(dirname(candidateDir), { recursive: true });
@@ -156,7 +173,7 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     if (error?.message?.startsWith('candidate output already exists:')) throw error;
   }
 
-  const entries = await collectAllowlistedFiles(source);
+  const entries = await collectAllowlistedFiles(source, trackedFiles);
   for (const entry of entries) await assertSourceFile(entry);
   const tempDir = await mkdtemp(join(dirname(candidateDir), `.community-081-${now().replace(/[^0-9A-Za-z-]/g, '')}-`));
   try {
@@ -176,6 +193,8 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     ensureRequiredFiles(payload.files);
     const provenance = {
       schemaVersion: 1,
+      edition: 'community',
+      targetVersion: '0.8.1',
       candidateVersion: '0.8.1',
       sourceCommit,
       files: payload.files,

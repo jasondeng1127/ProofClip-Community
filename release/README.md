@@ -17,9 +17,19 @@ node --test release/tests/community-0.8.1-export.test.mjs release/tests/communit
 ```
 
 The export requires `git rev-parse HEAD` and an empty `git status --porcelain`
-for the source root. `PROVENANCE.json` binds the candidate to the source
-commit, raw-byte file hashes, the generated `worker/dist/worker.mjs` hash, and
-the content fingerprint. The verifier scans paths and file content for RC,
+for the source root. It then reads `git -C <source> ls-files` and copies only
+tracked production paths: `extension/src`, production `worker/src`, migrations,
+scripts, the deploy core/wrappers/templates, the focused guide, and the public
+root files. Tests, fixtures, specs, `*.key`/`*.pem`, ignored files, local state,
+and the pre-existing Worker dist are excluded; only the offline-generated
+`worker/dist/worker.mjs` is added.
+
+`PROVENANCE.json` binds the candidate to `edition: community`,
+`targetVersion: 0.8.1`, one full 40-character source commit, raw-byte file
+hashes, the generated `worker/dist/worker.mjs` hash, and the content
+fingerprint. The verifier also derives the manifest Extension ID and requires
+the fixed Community identity `ecpbgjlelajodnnichnflkcjkhojfekl`. It scans paths
+and file content for RC,
 Fresh, Commercial, diagnostic, audit/release, runtime-state, OAuth, Cloudflare,
 Notion, vault, and private-key material; findings report only a category and
 path, never matched secret text.

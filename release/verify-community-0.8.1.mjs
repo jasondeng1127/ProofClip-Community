@@ -1,36 +1,45 @@
 import { createHash } from 'node:crypto';
-import { access, readdir, readFile, stat } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deriveExtensionId } from '../deploy/lib/identity.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const KEY = (value) => String(value).split(/[\\/]/).join('/');
+const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
+const ROOT_FILES = new Set(['README.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'TRADEMARKS.md', 'MIGRATION.md']);
 const REQUIRED_FILES = new Set([
   'extension/src/manifest.json',
   'extension/src/community-config.mjs',
   'worker/src/worker.mjs',
+  'worker/src/index.mjs',
   'worker/src/schema.sql',
   'worker/migrations/20260813_privacy_nonretention.sql',
   'worker/scripts/bundle-worker.mjs',
   'worker/dist/worker.mjs',
   'deploy/deploy.ps1',
   'deploy/deploy.sh',
+  'deploy/deploy.env.example',
   'deploy/wrangler.template.jsonc',
   'docs/community-0.8.1-deployment.md',
-  'README.md',
-  'LICENSE',
-  'SECURITY.md',
-  'CONTRIBUTING.md',
-  'TRADEMARKS.md',
-  'MIGRATION.md',
+  ...ROOT_FILES,
 ]);
 
 function isAllowedPath(path) {
-  if (path === 'PROVENANCE.json') return true;
-  if (REQUIRED_FILES.has(path)) return true;
-  if (/^(?:extension\/src|worker\/src|worker\/migrations|worker\/scripts)\//.test(path)) return true;
-  if (/^deploy\//.test(path) && !/(^|\/)(?:deploy\.env|\.dev\.vars(?:\.example)?|\.generated|\.state|node_modules)(?:\/|$)/.test(path)) return true;
-  return /^(?:README\.md|LICENSE|SECURITY\.md|CONTRIBUTING\.md|TRADEMARKS\.md|MIGRATION\.md|docs\/community-0\.8\.1-deployment\.md)$/.test(path);
+  if (path === 'PROVENANCE.json' || path === 'worker/dist/worker.mjs') return true;
+  if (ROOT_FILES.has(path) || path === 'docs/community-0.8.1-deployment.md') return true;
+  const segments = path.split('/');
+  if (segments.some((segment) => ['tests', 'test', 'fixtures', 'fixture', 'node_modules', '.wrangler', '.generated', '.state'].includes(segment))) return false;
+  if (/\.(test|spec)\.[^/]+$/i.test(path)) return false;
+  if (/\.(?:key|pem)$/i.test(path)) return false;
+  if (path.startsWith('extension/src/')) return true;
+  if (path.startsWith('worker/src/')) return !path.startsWith('worker/src/dist/');
+  if (path.startsWith('worker/migrations/') || path.startsWith('worker/scripts/')) return true;
+  if (path.startsWith('deploy/')) {
+    const fileName = segments.at(-1);
+    return fileName !== 'deploy.env' && !/^\.dev\.vars(?:\.example)?$/i.test(fileName) && !path.endsWith('/worker/dist/worker.mjs');
+  }
+  return false;
 }
 
 async function walkFiles(root) {
@@ -39,7 +48,6 @@ async function walkFiles(root) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) await visit(full);
-      else if (entry.isFile()) files.push(full);
       else files.push(full);
     }
   }
@@ -58,9 +66,10 @@ function fingerprint(files) {
 const pathRules = [
   { pattern: /^(?:audit|runtime-evidence)\//i, category: 'AUDIT_OR_RUNTIME_EVIDENCE' },
   { pattern: /^(?:release|docs\/(?:acceptance|backlog|superpowers))\//i, category: 'RELEASE_OR_PLANNING_EVIDENCE' },
-  { pattern: /(^|\/)\.wrangler\//i, category: 'WRANGLER_STATE' },
+  { pattern: /(^|\/)\.wrangler(?:\/|$)/i, category: 'WRANGLER_STATE' },
+  { pattern: /(^|\/)(?:runtime|local-runtime)(?:\/|$)/i, category: 'RUNTIME_STATE' },
   { pattern: /^worker\/dist\/(?!worker\.mjs$)/i, category: 'GENERATED_RUNTIME_STATE' },
-  { pattern: /^deploy\/(?:deploy\.env|\.dev\.vars(?:\.example)?|\.generated\/|\.state\/|node_modules\/)/i, category: 'LOCAL_DEPLOYMENT_STATE' },
+  { pattern: /^deploy\/(?:deploy\.env(?:$|\/)|\.dev\.vars(?:\.example)?(?:$|\/)|\.generated(?:\/|$)|\.state(?:\/|$)|node_modules(?:\/|$))/i, category: 'LOCAL_DEPLOYMENT_STATE' },
 ];
 
 const textRules = [
@@ -71,8 +80,12 @@ const textRules = [
   { pattern: /(?:projects\/service\/P-proofclip-api|lemonsqueezy|support-issued\s+key|manual-subscription|\/v1\/(?:license|usage\/report|webhooks\/lemon))/i, category: 'COMMERCIAL_IDENTITY' },
   { pattern: /(?:FRESH_DEPLOY_PASS_FROZEN|CANDIDATE_HANDOFF_BLOCKED|RELEASE_IDENTITY|release-record)/i, category: 'AUDIT_RELEASE_EVIDENCE' },
   { pattern: /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/i, category: 'PRIVATE_KEY_MATERIAL' },
-  { pattern: /(?:CF_API_TOKEN|CLOUDFLARE_API_TOKEN|NOTION_CLIENT_SECRET|TOKEN_VAULT_KEY)\s*[:=]\s*[^\s"']+/i, category: 'SECRET_VALUE' },
-  { pattern: /(?:access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|oauth[_ -]?state|authorization[_ -]?code)\s*[:=]\s*["']?(?!(?:ntn|nrt)_(?:test|realistic_test)|(?:client|secret|vault|token)[-_]?(?:secret|key|sentinel)|temporary[-_]code\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_SECRET' },
+  { pattern: /(?:CF_API_TOKEN|CLOUDFLARE_API_TOKEN)\s*[:=][ \t]*[^\s"']+/i, category: 'CLOUDFLARE_SECRET' },
+  { pattern: /NOTION_CLIENT_SECRET\s*[:=][ \t]*[^\s"']+/i, category: 'NOTION_SECRET' },
+  { pattern: /TOKEN_VAULT_KEY\s*[:=][ \t]*[^\s"']+/i, category: 'VAULT_SECRET' },
+  { pattern: /authorization[_ -]?code\s*[:=][ \t]*["']?(?!temporary[-_]code\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_CODE' },
+  { pattern: /oauth[_ -]?state\s*[:=][ \t]*["']?(?!oauth[-_]state[-_]test\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_STATE' },
+  { pattern: /(?:access[_ -]?token|refresh[_ -]?token)\s*[:=][ \t]*["']?(?!(?:ntn|nrt)_(?:test|realistic_test))[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_TOKEN' },
   { pattern: /\bBearer\s+[A-Za-z0-9._~+\/-]{16,}/i, category: 'AUTHORIZATION_TOKEN' },
   { pattern: /\b(?:secret_|ntn_|sk-)\w{10,}/i, category: 'SERVICE_SECRET' },
 ];
@@ -108,28 +121,31 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
   for (const file of payload) {
     if (!isAllowedPath(file.path)) findings.push(finding('UNALLOWLISTED_PATH', file.path));
     for (const rule of pathRules) if (rule.pattern.test(file.path)) findings.push(finding(rule.category, file.path));
-    if (file.path === 'worker/dist/worker.mjs' && !actualPaths.has('worker/dist/worker.mjs')) findings.push(finding('BUNDLE_MISSING', file.path));
-    if (file.path === 'worker/dist/worker.mjs' && files.filter((entry) => entry.path.startsWith('worker/dist/')).length !== 1) findings.push(finding('BUNDLE_SET_INVALID', file.path));
-    let text;
-    try {
-      text = file.bytes.toString('utf8');
-      if (text.includes('\uFFFD')) continue;
-    } catch {
-      continue;
-    }
-    for (const rule of textRules) if (rule.pattern.test(text)) findings.push(finding(rule.category, file.path));
+    const text = file.bytes.toString('utf8');
+    if (!text.includes('\uFFFD')) for (const rule of textRules) if (rule.pattern.test(text)) findings.push(finding(rule.category, file.path));
   }
 
   const provenanceText = await readFile(join(root, 'PROVENANCE.json'), 'utf8');
   for (const rule of textRules) if (rule.pattern.test(provenanceText)) findings.push(finding(rule.category, 'PROVENANCE.json'));
   try {
     const manifest = JSON.parse((payload.find((file) => file.path === 'extension/src/manifest.json')?.bytes || '').toString('utf8'));
+    if (manifest.manifest_version !== 3 || manifest.version !== '0.8.1') findings.push(finding('MANIFEST_VERSION_INVALID', 'extension/src/manifest.json'));
     if (typeof manifest.key !== 'string' || !manifest.key.trim()) findings.push(finding('STABLE_MANIFEST_KEY_MISSING', 'extension/src/manifest.json'));
+    else {
+      try {
+        if (deriveExtensionId(manifest.key) !== STABLE_EXTENSION_ID) findings.push(finding('STABLE_EXTENSION_ID_MISMATCH', 'extension/src/manifest.json'));
+      } catch {
+        findings.push(finding('STABLE_MANIFEST_KEY_INVALID', 'extension/src/manifest.json'));
+      }
+    }
   } catch {
     findings.push(finding('MANIFEST_INVALID', 'extension/src/manifest.json'));
   }
 
   if (provenance.schemaVersion !== 1 || provenance.candidateVersion !== '0.8.1') findings.push(finding('PROVENANCE_SCHEMA_INVALID', 'PROVENANCE.json'));
+  if (provenance.edition !== 'community') findings.push(finding('PROVENANCE_EDITION_MISMATCH', 'PROVENANCE.json'));
+  if (provenance.targetVersion !== '0.8.1') findings.push(finding('PROVENANCE_TARGET_VERSION_MISMATCH', 'PROVENANCE.json'));
+  if (!/^[0-9a-f]{40}$/i.test(String(provenance.sourceCommit || ''))) findings.push(finding('SOURCE_COMMIT_INVALID', 'PROVENANCE.json'));
   if (provenance.sourceCommit !== expectedCommit) findings.push(finding('SOURCE_COMMIT_MISMATCH', 'PROVENANCE.json'));
   if (provenance.contentFingerprint !== contentFingerprint) findings.push(finding('CONTENT_FINGERPRINT_MISMATCH', 'PROVENANCE.json'));
   if (expectedFingerprint !== contentFingerprint) findings.push(finding('EXPECTED_FINGERPRINT_MISMATCH', 'PROVENANCE.json'));
