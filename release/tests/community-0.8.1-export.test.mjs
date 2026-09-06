@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { access, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import test from 'node:test';
@@ -219,6 +219,57 @@ test('removes candidate and sidecar when immediate self-verification fails', asy
     );
     await assert.rejects(access(outDir));
     await assert.rejects(access(`${outDir}.sha256`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('reserves the candidate directory before reading Git objects', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  let reservationObserved = false;
+  try {
+    await createCommunity081Candidate({
+      sourceRoot: root,
+      outDir,
+      gitImpl: gitImpl(commit, trackedFiles, '', {
+        readObject: async (repo, objectCommit, path) => {
+          try {
+            await lstat(outDir);
+            reservationObserved = true;
+          } catch {
+            reservationObserved = false;
+          }
+          return execFileSync('git', ['-C', repo, 'show', `${objectCommit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] });
+        },
+      }),
+    });
+    assert.equal(reservationObserved, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('does not remove a replacement candidate directory during failed cleanup', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  const replacement = join(outDir, 'owned-by-other-process.txt');
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({
+        sourceRoot: root,
+        outDir,
+        gitImpl: gitImpl(commit, trackedFiles),
+        verifyImpl: async ({ candidateDir }) => {
+          await rm(candidateDir, { recursive: true, force: true });
+          await mkdir(candidateDir, { recursive: false });
+          await writeFile(replacement, 'preserve this directory\n');
+          return { ok: false, findings: ['CANDIDATE_PROVENANCE_FAILED category=TEST path=README.md'] };
+        },
+      }),
+      /self-verification/i,
+    );
+    assert.equal(await readFile(replacement, 'utf8'), 'preserve this directory\n');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

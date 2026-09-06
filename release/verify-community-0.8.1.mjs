@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { basename, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveExtensionId } from '../deploy/lib/identity.mjs';
 
@@ -185,8 +185,13 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
   const bundle = files.find((file) => file.path === 'worker/dist/worker.mjs');
   if (bundle && provenance.bundle?.sha256 !== bundle.sha256) findings.push(finding('BUNDLE_HASH_MISMATCH', 'worker/dist/worker.mjs'));
   try {
-    const sidecar = (await readFile(`${root}.sha256`, 'utf8')).trim().split(/\s+/)[0];
-    if (sidecar !== contentFingerprint) findings.push(finding('SIDECAR_HASH_MISMATCH', 'candidate.sha256'));
+    const sidecarText = await readFile(`${root}.sha256`, 'utf8');
+    const sidecarLine = sidecarText.endsWith('\n')
+      ? sidecarText.slice(0, -1).replace(/\r$/, '')
+      : sidecarText;
+    const match = !/[\r\n]/.test(sidecarLine) && /^([0-9a-f]{64})\s{2,}([^\s]+)$/.exec(sidecarLine);
+    if (!match || match[1] !== contentFingerprint) findings.push(finding('SIDECAR_HASH_MISMATCH', 'candidate.sha256'));
+    if (!match || match[2] !== basename(root)) findings.push(finding('SIDECAR_NAME_MISMATCH', 'candidate.sha256'));
   } catch {
     findings.push(finding('SIDECAR_MISSING', 'candidate.sha256'));
   }

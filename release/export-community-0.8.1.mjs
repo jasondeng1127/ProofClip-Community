@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { access, lstat, mkdtemp, mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promises';
+import { access, lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyCommunity081Candidate } from './verify-community-0.8.1.mjs';
@@ -157,6 +157,30 @@ async function readTrackedObject(gitImpl, sourceRoot, sourceCommit, path) {
   return bytes;
 }
 
+async function assertAbsent(path, label) {
+  try {
+    await lstat(path);
+    throw new Error(`${label} already exists: ${path}`);
+  } catch (error) {
+    if (error?.message?.startsWith(`${label} already exists:`)) throw error;
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+function sameFileIdentity(left, right) {
+  return Boolean(left && right && left.dev === right.dev && left.ino === right.ino);
+}
+
+async function removeOwned(path, identity, options = {}) {
+  if (!identity) return;
+  try {
+    const current = await lstat(path);
+    if (sameFileIdentity(current, identity)) await rm(path, options);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
 async function runBundle(candidateDir) {
   const script = join(candidateDir, 'worker/scripts/bundle-worker.mjs');
   await new Promise((resolvePromise, reject) => {
@@ -200,30 +224,37 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
 
   await access(source);
   await mkdir(dirname(candidateDir), { recursive: true });
-  const candidateExists = await (async () => { try { await lstat(candidateDir); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; } })();
-  if (candidateExists) throw new Error(`candidate output already exists: ${candidateDir}`);
   const sidecar = `${candidateDir}.sha256`;
-  const sidecarExists = await (async () => { try { await lstat(sidecar); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; } })();
-  if (sidecarExists) throw new Error(`candidate sidecar already exists: ${sidecar}`);
+  await assertAbsent(candidateDir, 'candidate output');
+  await assertAbsent(sidecar, 'candidate sidecar');
 
   const entries = collectAllowlistedFiles(treeEntries);
-  const tempDir = await mkdtemp(join(dirname(candidateDir), `.community-081-${now().replace(/[^0-9A-Za-z-]/g, '')}-`));
-  let published = false;
+  let candidateReserved = false;
+  let candidateIdentity;
   let sidecarCreated = false;
+  let sidecarIdentity;
   try {
+    try {
+      await mkdir(candidateDir);
+    } catch (error) {
+      throw new Error(`candidate output reservation failed: ${candidateDir}`, { cause: error });
+    }
+    candidateReserved = true;
+    candidateIdentity = await lstat(candidateDir);
+
     for (const entry of entries) {
-      const destination = join(tempDir, entry.output);
+      const destination = join(candidateDir, entry.output);
       await mkdir(dirname(destination), { recursive: true });
       await writeFile(destination, await readTrackedObject(gitImpl, source, sourceCommit, entry.path));
     }
 
-    await runBundle(tempDir);
-    const distFiles = await walkFiles(join(tempDir, 'worker/dist'));
-    const unexpectedDist = distFiles.filter((file) => KEY(relative(join(tempDir, 'worker/dist'), file)) !== 'worker.mjs');
+    await runBundle(candidateDir);
+    const distFiles = await walkFiles(join(candidateDir, 'worker/dist'));
+    const unexpectedDist = distFiles.filter((file) => KEY(relative(join(candidateDir, 'worker/dist'), file)) !== 'worker.mjs');
     if (unexpectedDist.length) throw new Error('candidate Worker dist contains files other than worker/dist/worker.mjs');
 
-    const bundle = await readFile(join(tempDir, 'worker/dist/worker.mjs'));
-    const payload = await hashCandidateFiles(tempDir);
+    const bundle = await readFile(join(candidateDir, 'worker/dist/worker.mjs'));
+    const payload = await hashCandidateFiles(candidateDir);
     ensureRequiredFiles(payload.files);
     const provenance = {
       schemaVersion: 1,
@@ -239,11 +270,10 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
       },
       contentFingerprint: payload.contentFingerprint,
     };
-    await writeFile(join(tempDir, 'PROVENANCE.json'), `${JSON.stringify(provenance, null, 2)}\n`, 'utf8');
-    await rename(tempDir, candidateDir);
-    published = true;
+    await writeFile(join(candidateDir, 'PROVENANCE.json'), `${JSON.stringify(provenance, null, 2)}\n`, 'utf8');
     await writeFile(sidecar, `${payload.contentFingerprint}  ${candidateDir.split(/[\\/]/).at(-1)}\n`, { encoding: 'utf8', flag: 'wx' });
     sidecarCreated = true;
+    sidecarIdentity = await lstat(sidecar);
     let verification;
     try {
       verification = await verifyImpl({ candidateDir, expectedCommit: sourceCommit, expectedFingerprint: payload.contentFingerprint });
@@ -253,11 +283,8 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     if (!verification?.ok) throw new Error('candidate self-verification failed');
     return { sourceCommit, files: payload.files, contentFingerprint: payload.contentFingerprint, candidateDir };
   } catch (error) {
-    if (published) {
-      await rm(candidateDir, { recursive: true, force: true });
-    }
-    if (sidecarCreated) await rm(sidecar, { force: true });
-    if (!published) await rm(tempDir, { recursive: true, force: true });
+    if (sidecarCreated) await removeOwned(sidecar, sidecarIdentity, { force: true });
+    if (candidateReserved) await removeOwned(candidateDir, candidateIdentity, { recursive: true, force: true });
     throw error;
   }
 }

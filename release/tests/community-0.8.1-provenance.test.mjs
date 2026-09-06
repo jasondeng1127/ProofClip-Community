@@ -196,6 +196,12 @@ test('fails closed independently for file, content, bundle, provenance, sidecar,
     });
     assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=SIDECAR_HASH_MISMATCH path=candidate.sha256'));
   });
+  await t.test('correct sidecar hash with wrong candidate name', async () => {
+    const result = await verifyMutation(async ({ candidateDir, exported }) => {
+      await writeFile(`${candidateDir}.sha256`, `${exported.contentFingerprint}  wrong-candidate-name\n`);
+    });
+    assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=SIDECAR_NAME_MISMATCH path=candidate.sha256'));
+  });
   await t.test('unallowlisted file', async () => {
     const result = await verifyMutation(async ({ candidateDir }) => {
       await writeFile(join(candidateDir, 'unexpected.txt'), 'unexpected\n');
