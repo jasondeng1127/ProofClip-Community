@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { access, lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -181,6 +181,43 @@ async function removeOwned(path, identity, options = {}) {
   }
 }
 
+async function reserveCandidateDirectory(candidateDir) {
+  try {
+    await mkdir(candidateDir);
+  } catch (error) {
+    throw new Error(`candidate output reservation failed: ${candidateDir}`, { cause: error });
+  }
+  const directoryIdentity = await lstat(candidateDir);
+  const token = randomBytes(32).toString('hex');
+  const markerPath = `${candidateDir}.owner-${randomBytes(16).toString('hex')}`;
+  await writeFile(markerPath, `${token}\n`, { encoding: 'utf8', flag: 'wx' });
+  const markerIdentity = await lstat(markerPath);
+  return { candidateDir, directoryIdentity, markerPath, markerIdentity, token };
+}
+
+async function markerIsOwned(reservation) {
+  try {
+    const directoryIdentity = await lstat(reservation.candidateDir);
+    const markerIdentity = await lstat(reservation.markerPath);
+    if (!sameFileIdentity(directoryIdentity, reservation.directoryIdentity) || !sameFileIdentity(markerIdentity, reservation.markerIdentity) || !markerIdentity.isFile()) return false;
+    return (await readFile(reservation.markerPath, 'utf8')) === `${reservation.token}\n`;
+  } catch {
+    return false;
+  }
+}
+
+async function removeOwnedMarker(reservation) {
+  if (!await markerIsOwned(reservation)) return false;
+  await rm(reservation.markerPath, { force: true });
+  return true;
+}
+
+async function removeOwnedReservation(reservation) {
+  const owned = await markerIsOwned(reservation);
+  if (owned) await rm(reservation.candidateDir, { recursive: true, force: true });
+  await removeOwned(reservation.markerPath, reservation.markerIdentity, { force: true });
+}
+
 async function runBundle(candidateDir) {
   const script = join(candidateDir, 'worker/scripts/bundle-worker.mjs');
   await new Promise((resolvePromise, reject) => {
@@ -218,9 +255,6 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit || ''))) throw new Error('clean source commit required: git rev-parse HEAD must return the full 40-character commit');
   const status = await Promise.resolve(gitImpl.statusPorcelain(source));
   if (status === null || String(status).trim()) throw new Error('clean source tree required: source tree is dirty');
-  const treeEntries = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
-  const treeEntriesAgain = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
-  if (JSON.stringify(treeEntries) !== JSON.stringify(treeEntriesAgain)) throw new Error('verified HEAD tree changed during export; refusing unstable source');
 
   await access(source);
   await mkdir(dirname(candidateDir), { recursive: true });
@@ -228,19 +262,15 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
   await assertAbsent(candidateDir, 'candidate output');
   await assertAbsent(sidecar, 'candidate sidecar');
 
-  const entries = collectAllowlistedFiles(treeEntries);
-  let candidateReserved = false;
-  let candidateIdentity;
+  let reservation;
   let sidecarCreated = false;
   let sidecarIdentity;
   try {
-    try {
-      await mkdir(candidateDir);
-    } catch (error) {
-      throw new Error(`candidate output reservation failed: ${candidateDir}`, { cause: error });
-    }
-    candidateReserved = true;
-    candidateIdentity = await lstat(candidateDir);
+    reservation = await reserveCandidateDirectory(candidateDir);
+    const treeEntries = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
+    const treeEntriesAgain = normalizeTreeEntries(await Promise.resolve(gitImpl.listTree(source, sourceCommit)));
+    if (JSON.stringify(treeEntries) !== JSON.stringify(treeEntriesAgain)) throw new Error('verified HEAD tree changed during export; refusing unstable source');
+    const entries = collectAllowlistedFiles(treeEntries);
 
     for (const entry of entries) {
       const destination = join(candidateDir, entry.output);
@@ -281,10 +311,11 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
       throw new Error('candidate self-verification failed', { cause: error });
     }
     if (!verification?.ok) throw new Error('candidate self-verification failed');
+    if (!await removeOwnedMarker(reservation)) throw new Error('candidate ownership marker changed before completion');
     return { sourceCommit, files: payload.files, contentFingerprint: payload.contentFingerprint, candidateDir };
   } catch (error) {
     if (sidecarCreated) await removeOwned(sidecar, sidecarIdentity, { force: true });
-    if (candidateReserved) await removeOwned(candidateDir, candidateIdentity, { recursive: true, force: true });
+    if (reservation) await removeOwnedReservation(reservation);
     throw error;
   }
 }

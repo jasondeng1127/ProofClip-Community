@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import test from 'node:test';
 import { createCommunity081Candidate } from '../export-community-0.8.1.mjs';
 import { verifyCommunity081Candidate } from '../verify-community-0.8.1.mjs';
@@ -228,11 +228,23 @@ test('reserves the candidate directory before reading Git objects', async () => 
   const { root, commit, trackedFiles } = await createFixture();
   const outDir = join(root, 'candidate');
   let reservationObserved = false;
+  let ownerMarkerObserved = false;
   try {
     await createCommunity081Candidate({
       sourceRoot: root,
       outDir,
       gitImpl: gitImpl(commit, trackedFiles, '', {
+        listTree: async (call, repo, objectCommit) => {
+          try {
+            await lstat(outDir);
+            reservationObserved = true;
+            ownerMarkerObserved = (await readdir(join(outDir, '..'))).some((entry) => entry.startsWith(`${basename(outDir)}.owner-`));
+          } catch {
+            reservationObserved = false;
+            ownerMarkerObserved = false;
+          }
+          return treeEntries(repo, objectCommit, trackedFiles);
+        },
         readObject: async (repo, objectCommit, path) => {
           try {
             await lstat(outDir);
@@ -245,6 +257,7 @@ test('reserves the candidate directory before reading Git objects', async () => 
       }),
     });
     assert.equal(reservationObserved, true);
+    assert.equal(ownerMarkerObserved, true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
