@@ -32,6 +32,7 @@ function ownedWorker(overrides = {}) {
   return {
     id: 'worker-id',
     name: names.workerName,
+    type: 'worker',
     marker: names.marker,
     candidateCommit: candidate.candidateCommit,
     candidateSha256: candidate.candidateSha256,
@@ -106,6 +107,61 @@ test('owned second run reuses the Worker and D1 without updates', async () => {
   assert.equal(result.workerOrigin, candidate.workerOrigin);
   assert.equal(cloudflare.calls.createD1, 0);
   assert.equal(cloudflare.calls.updateWorker, 0);
+});
+
+test('caller-overridden Worker and D1 names are rejected before discovery or creation', async () => {
+  const cloudflare = fakeCloudflare();
+  await assert.rejects(
+    resolveDeploymentResources({
+      cloudflare,
+      state: null,
+      candidate,
+      names: { workerName: 'proofclip-community-2', d1Name: 'proofclip-community-2', marker: names.marker }
+    }),
+    (error) => error.code === 'RESOURCE_CONFLICT'
+  );
+  assert.equal(cloudflare.calls.getWorker, 0);
+  assert.equal(cloudflare.calls.createD1, 0);
+});
+
+test('missing remote candidate identity is a conflict and cannot be reused', async () => {
+  const remoteWorker = ownedWorker();
+  delete remoteWorker.candidateCommit;
+  delete remoteWorker.candidateSha256;
+  const cloudflare = fakeCloudflare({ worker: remoteWorker, d1: ownedD1() });
+  await assert.rejects(
+    resolveDeploymentResources({ cloudflare, state, candidate, names }),
+    (error) => error.code === 'RESOURCE_CONFLICT'
+  );
+  assert.equal(cloudflare.calls.createD1, 0);
+  assert.equal(cloudflare.calls.updateWorker, 0);
+});
+
+test('a non-Worker remote resource cannot be reused', async () => {
+  const cloudflare = fakeCloudflare({ worker: ownedWorker({ type: 'pages_project' }), d1: ownedD1() });
+  await assert.rejects(
+    resolveDeploymentResources({ cloudflare, state, candidate, names }),
+    (error) => error.code === 'RESOURCE_CONFLICT'
+  );
+});
+
+test('local state rejects extra credential, token, secret, and vault fields', async () => {
+  const cloudflare = fakeCloudflare();
+  const invalidState = {
+    ...state,
+    CF_API_TOKEN: 'cf-api-token-sentinel',
+    NOTION_CLIENT_SECRET: 'client-secret-sentinel',
+    TOKEN_VAULT_KEY: 'vault-key-sentinel'
+  };
+  await assert.rejects(
+    resolveDeploymentResources({ cloudflare, state: invalidState, candidate, names }),
+    (error) => error.code === 'DEPLOYMENT_STATE_INVALID'
+      && !error.message.includes('cf-api-token-sentinel')
+      && !error.message.includes('client-secret-sentinel')
+      && !error.message.includes('vault-key-sentinel')
+  );
+  assert.equal(cloudflare.calls.verifyToken, 0);
+  assert.equal(cloudflare.calls.getWorker, 0);
 });
 
 for (const [label, mutate] of [

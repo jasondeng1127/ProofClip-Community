@@ -4,6 +4,17 @@ import { buildNotionRedirectUri, normalizeHttpsOrigin } from './origin.mjs';
 const DEFAULT_WORKER_NAME = 'proofclip-community';
 const DEFAULT_D1_NAME = 'proofclip-community';
 const DEFAULT_MARKER = 'community-0.8.1';
+const LOCAL_STATE_FIELDS = new Set([
+  'schemaVersion',
+  'accountId',
+  'workerId',
+  'workerName',
+  'd1Id',
+  'd1Name',
+  'extensionId',
+  'candidateCommit',
+  'candidateSha256'
+]);
 
 function fail(code, message, details = {}) {
   throw new DeployError(code, message, details);
@@ -80,11 +91,14 @@ function originFromCandidate(candidate) {
 }
 
 function resolveNames(names = {}) {
-  return {
-    workerName: text(names.workerName) || text(names.worker) || DEFAULT_WORKER_NAME,
-    d1Name: text(names.d1Name) || text(names.d1) || DEFAULT_D1_NAME,
-    marker: text(names.marker) || DEFAULT_MARKER
-  };
+  names ||= {};
+  const workerName = text(names.workerName) || text(names.worker) || DEFAULT_WORKER_NAME;
+  const d1Name = text(names.d1Name) || text(names.d1) || DEFAULT_D1_NAME;
+  const marker = text(names.marker) || DEFAULT_MARKER;
+  if (workerName !== DEFAULT_WORKER_NAME || d1Name !== DEFAULT_D1_NAME || marker !== DEFAULT_MARKER) {
+    fail('RESOURCE_CONFLICT', 'Task 4 resource names and marker are deterministic and cannot be overridden.');
+  }
+  return { workerName: DEFAULT_WORKER_NAME, d1Name: DEFAULT_D1_NAME, marker: DEFAULT_MARKER };
 }
 
 function usableAccounts(value) {
@@ -109,7 +123,22 @@ function assertLocalState(state, expected) {
   if (!text(state.workerId) || !text(state.d1Id)) fail('RESOURCE_CONFLICT', 'Local deployment state is incomplete.');
 }
 
+function assertClosedState(state) {
+  if (!state) return;
+  const fields = typeof state === 'object' && !Array.isArray(state) ? Object.keys(state) : [];
+  if (
+    typeof state !== 'object'
+    || Array.isArray(state)
+    || fields.length !== LOCAL_STATE_FIELDS.size
+    || fields.some((field) => !LOCAL_STATE_FIELDS.has(field))
+  ) {
+    fail('DEPLOYMENT_STATE_INVALID', 'Local deployment state contains unsupported fields.');
+  }
+}
+
 function assertOwnedWorker(worker, d1, expected) {
+  const workerType = text(worker?.type) || text(worker?.resourceType) || text(worker?.resource_type);
+  if (workerType !== 'worker') fail('RESOURCE_CONFLICT', 'The existing resource is not a Worker.');
   if (resourceId(worker) !== expected.workerId || resourceName(worker) !== expected.workerName) {
     fail('RESOURCE_CONFLICT', 'The existing Worker identity does not match local deployment state.');
   }
@@ -133,7 +162,7 @@ function assertOwnedWorker(worker, d1, expected) {
     ['candidateSha256', ['PROOFCLIP_CANDIDATE_SHA256', 'candidateSha256']]
   ]) {
     const remoteValue = workerVariable(worker, keys);
-    if (remoteValue !== null && remoteValue !== expected[field]) {
+    if (remoteValue !== expected[field]) {
       fail('RESOURCE_CONFLICT', `The existing Worker ${field} conflicts with the candidate.`);
     }
   }
@@ -146,6 +175,7 @@ function assertOwnedWorker(worker, d1, expected) {
 export async function resolveDeploymentResources({ cloudflare, state = null, candidate, names = {} }) {
   if (!cloudflare || typeof cloudflare.listAccounts !== 'function') throw new TypeError('cloudflare client is required');
   if (!candidate || typeof candidate !== 'object') throw new TypeError('candidate is required');
+  assertClosedState(state);
   const resolvedNames = resolveNames(names);
   const extensionId = text(candidate.extensionId);
   const candidateCommit = text(candidate.candidateCommit);

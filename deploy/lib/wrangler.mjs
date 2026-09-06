@@ -19,12 +19,19 @@ export function createWranglerRunner({ binaryPath, cwd, env, spawnImpl = spawn }
       throw new TypeError('Wrangler args must be an array of strings');
     }
     for (const secret of redact) registerRedactionSecret(secret);
+    const childEnv = { ...process.env, ...(env || {}) };
+    for (const key of ['CF_API_TOKEN', 'CLOUDFLARE_API_TOKEN']) {
+      registerRedactionSecret(childEnv[key]);
+    }
+    if (input !== undefined && input !== null) {
+      registerRedactionSecret(Buffer.isBuffer(input) ? input.toString('utf8') : String(input));
+    }
 
     let child;
     try {
       child = spawnImpl(binaryPath, args, {
         cwd,
-        env: { ...process.env, ...(env || {}) },
+        env: childEnv,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
       });

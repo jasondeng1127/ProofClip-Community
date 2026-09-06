@@ -14,8 +14,13 @@ function pathSegment(value) {
 }
 
 function errorForResponse(operation, status) {
+  if (status === 403) return 'CLOUDFLARE_PERMISSION_FAILED';
   if (operation === 'verify token' || status === 401) return 'CLOUDFLARE_AUTH_FAILED';
   return 'CLOUDFLARE_PERMISSION_FAILED';
+}
+
+function invalidResponse(operation) {
+  return new DeployError('CLOUDFLARE_RESPONSE_INVALID', `Cloudflare ${operation} returned an invalid API response.`);
 }
 
 export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
@@ -45,20 +50,21 @@ export function createCloudflareClient({ apiToken, fetchImpl = fetch }) {
       );
     }
 
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-
-    if (!response.ok || payload?.success === false) {
+    if (!response || !Number.isInteger(response.status)) throw invalidResponse(operation);
+    if (response.status < 200 || response.status >= 300) {
       throw new DeployError(
         errorForResponse(operation, response.status),
         `Cloudflare ${operation} failed with HTTP ${response.status}.`,
         { status: response.status }
       );
     }
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw invalidResponse(operation);
+    }
+    if (!payload || payload.success !== true) throw invalidResponse(operation);
     return payload?.result;
   }
 
