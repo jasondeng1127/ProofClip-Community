@@ -99,17 +99,6 @@ function settingsBackedWorker(metadata, settings) {
   };
 }
 
-function hasCompleteInlineOwnership(worker) {
-  return Boolean(
-    workerVariable(worker, ['PROOFCLIP_DEPLOYMENT_MARKER', 'marker', 'deploymentMarker'])
-    && workerVariable(worker, ['PROOFCLIP_EXTENSION_ID', 'extensionId'])
-    && workerVariable(worker, ['NOTION_REDIRECT_URI', 'redirectUri', 'callbackUri'])
-    && workerVariable(worker, ['PROOFCLIP_CANDIDATE_COMMIT', 'candidateCommit'])
-    && workerVariable(worker, ['PROOFCLIP_CANDIDATE_SHA256', 'candidateSha256'])
-    && workerBinding(worker, 'DB')
-  );
-}
-
 function originFromCandidate(candidate) {
   if (text(candidate?.workerOrigin)) return normalizeHttpsOrigin(candidate.workerOrigin);
   if (text(candidate?.origin)) return normalizeHttpsOrigin(candidate.origin);
@@ -259,11 +248,10 @@ export async function resolveDeploymentResources({ cloudflare, state = null, can
 
   if (!worker || !d1) fail('RESOURCE_CONFLICT', 'Local deployment state points to a missing Cloudflare resource.');
   let ownedWorker = worker;
-  // Older unit doubles may expose the complete legacy list shape but not the
-  // settings endpoint. The real adapter calls settings whenever list metadata
-  // cannot prove the complete ownership tuple; it never falls back from an
-  // incomplete list response.
-  if (typeof cloudflare.getWorkerSettings === 'function' && !hasCompleteInlineOwnership(worker)) {
+  // Unit doubles from before the settings channel may omit the method; the
+  // production adapter always exposes it and therefore always reads the
+  // authoritative settings/config response for state-backed reuse.
+  if (typeof cloudflare.getWorkerSettings === 'function') {
     const settings = await cloudflare.getWorkerSettings(accountId, resolvedNames.workerName);
     ownedWorker = settingsBackedWorker(worker, settings);
   }

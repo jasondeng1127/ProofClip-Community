@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
 
@@ -380,6 +380,14 @@ test('malformed Worker settings fail closed before reuse or resource creation', 
       spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
       fsImpl: createFsSpy(events),
     });
+    remote.worker.vars = {
+      PROOFCLIP_DEPLOYMENT_MARKER: 'community-0.8.1',
+      PROOFCLIP_EXTENSION_ID: stableIdentity.extensionId,
+      NOTION_REDIRECT_URI: `${remote.workerOrigin}/v1/auth/notion/callback`,
+      PROOFCLIP_CANDIDATE_COMMIT: CANDIDATE_SOURCE_COMMIT,
+      PROOFCLIP_CANDIDATE_SHA256: JSON.parse(await readFile(statePath, 'utf8')).candidateSha256,
+    };
+    remote.worker.bindings = [{ name: 'DB', type: 'd1', database_id: remote.d1.id }];
     remote.settings = [];
     await assert.rejects(
       runDeployment({
@@ -394,6 +402,80 @@ test('malformed Worker settings fail closed before reuse or resource creation', 
     );
     assert.equal(events.filter((event) => event === 'd1-create').length, 1);
     assert.equal(events.filter((event) => event === 'deploy').length, 1);
+    assert.equal(events.filter((event) => event.startsWith('secret:')).length, 2);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('worktree-style Git HEAD resolves through commondir refs before candidate provenance', async () => {
+  const fixture = await createCandidate();
+  const commonGit = await mkdtemp(join(tmpdir(), 'proofclip-common-git-'));
+  const worktreeGit = join(commonGit, 'worktrees', 'task-5');
+  const expectedCommit = 'b'.repeat(40);
+  const events = [];
+  const remote = configureRemote();
+  const secretInputs = [];
+  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  try {
+    await mkdir(worktreeGit, { recursive: true });
+    await mkdir(join(commonGit, 'refs', 'heads'), { recursive: true });
+    await writeFile(join(fixture.root, '.git'), `gitdir: ${relative(fixture.root, worktreeGit)}\n`);
+    await writeFile(join(worktreeGit, 'HEAD'), 'ref: refs/heads/task-5\n');
+    await writeFile(join(worktreeGit, 'commondir'), '../..\n');
+    await writeFile(join(commonGit, 'refs', 'heads', 'task-5'), `${expectedCommit}\n`);
+    await writeFile(join(fixture.root, 'PROVENANCE.json'), JSON.stringify({
+      edition: 'community',
+      targetVersion: '0.8.1',
+      sourceCommit: 'c'.repeat(40),
+    }) + '\n');
+
+    const { runDeployment } = await import('../deploy-core.mjs');
+    await runDeployment({
+      repoRoot: fixture.root,
+      envPath: fixture.envPath,
+      statePath,
+      fetchImpl: createFetchMock({ events, remote }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      fsImpl: createFsSpy(events),
+    });
+    assert.equal(JSON.parse(await readFile(statePath, 'utf8')).candidateCommit, expectedCommit);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+    await rm(commonGit, { recursive: true, force: true });
+  }
+});
+
+test('candidate fingerprint preserves non-UTF-8 staged bytes', async () => {
+  const fixture = await createCandidate();
+  const bytePath = join(fixture.root, 'extension', 'src', 'binary-fixture.bin');
+  const events = [];
+  const remote = configureRemote();
+  const secretInputs = [];
+  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  try {
+    await writeFile(bytePath, Buffer.from([0xff, 0x00]));
+    const { runDeployment } = await import('../deploy-core.mjs');
+    await runDeployment({
+      repoRoot: fixture.root,
+      envPath: fixture.envPath,
+      statePath,
+      fetchImpl: createFetchMock({ events, remote }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      fsImpl: createFsSpy(events),
+    });
+    await writeFile(bytePath, Buffer.from([0xfe, 0x00]));
+    await assert.rejects(
+      runDeployment({
+        repoRoot: fixture.root,
+        envPath: fixture.envPath,
+        statePath,
+        fetchImpl: createFetchMock({ events, remote }),
+        spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+        fsImpl: createFsSpy(events),
+      }),
+      (error) => error.code === 'RESOURCE_CONFLICT'
+    );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

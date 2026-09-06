@@ -351,6 +351,21 @@ test('the API client response shape can feed ownership reuse without synthetic t
       const parsed = new URL(url);
       if (parsed.pathname.endsWith('/user/tokens/verify')) return jsonResponse(200, { success: true, result: { status: 'active' } });
       if (parsed.pathname.endsWith('/accounts')) return jsonResponse(200, { success: true, result: [{ id: 'account-id' }] });
+      if (parsed.pathname.endsWith('/workers/scripts/proofclip-community/settings')) {
+        return jsonResponse(200, {
+          success: true,
+          result: {
+            vars: {
+              PROOFCLIP_DEPLOYMENT_MARKER: 'community-0.8.1',
+              PROOFCLIP_EXTENSION_ID: candidate.extensionId,
+              NOTION_REDIRECT_URI: 'https://worker.example/v1/auth/notion/callback',
+              PROOFCLIP_CANDIDATE_COMMIT: candidate.candidateCommit,
+              PROOFCLIP_CANDIDATE_SHA256: candidate.candidateSha256
+            },
+            bindings: [{ name: 'DB', type: 'd1', database_id: 'd1-id' }]
+          }
+        });
+      }
       if (parsed.pathname.endsWith('/workers/scripts')) {
         return jsonResponse(200, {
           success: true,
@@ -358,14 +373,6 @@ test('the API client response shape can feed ownership reuse without synthetic t
             id: 'worker-id',
             name: 'proofclip-community',
             type: 'worker',
-            candidateCommit: candidate.candidateCommit,
-            candidateSha256: candidate.candidateSha256,
-            vars: {
-              PROOFCLIP_DEPLOYMENT_MARKER: 'community-0.8.1',
-              PROOFCLIP_EXTENSION_ID: candidate.extensionId,
-              NOTION_REDIRECT_URI: 'https://worker.example/v1/auth/notion/callback'
-            },
-            bindings: [{ name: 'DB', type: 'd1', database_id: 'd1-id' }]
           }]
         });
       }

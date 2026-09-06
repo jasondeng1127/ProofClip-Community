@@ -216,7 +216,11 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
     .map(({ path }) => path);
   const hash = createHash('sha256');
-  for (const file of identityFiles) hash.update(normalizeRelative(relative(root, file))).update('\0').update(textValue(await fsImpl.readFile(file))).update('\0');
+  for (const file of identityFiles) {
+    hash.update(normalizeRelative(relative(root, file))).update('\0');
+    hash.update(await fsImpl.readFile(file));
+    hash.update('\0');
+  }
   const candidateSha256 = hash.digest('hex');
   const candidateCommit = await readCandidateCommit({ root, fsImpl });
   return { root, extensionId, candidateCommit, candidateSha256 };
@@ -242,6 +246,18 @@ async function readCandidateCommit({ root, fsImpl }) {
 }
 
 async function readGitCommit({ root, fsImpl }) {
+  if (typeof fsImpl.gitCommit === 'function') {
+    try {
+      const injected = textValue(await fsImpl.gitCommit(root)).trim();
+      if (/^[0-9a-f]{40}$/i.test(injected)) return injected;
+    } catch { /* fall through to the local Git and filesystem readers */ }
+  }
+  try {
+    const result = await execFileAsync('git', ['-C', root, 'rev-parse', '--verify', 'HEAD'], { windowsHide: true });
+    const head = textValue(result.stdout).trim();
+    if (/^[0-9a-f]{40}$/i.test(head)) return head;
+  } catch { /* exported candidates may not be Git worktrees */ }
+
   try {
     const gitMarker = textValue(await fsImpl.readFile(join(root, '.git'), 'utf8')).trim();
     const gitDir = gitMarker.startsWith('gitdir:') ? resolve(root, gitMarker.slice(7).trim()) : join(root, '.git');
@@ -249,8 +265,30 @@ async function readGitCommit({ root, fsImpl }) {
     if (/^[0-9a-f]{40}$/i.test(head)) return head;
     if (head.startsWith('ref: ')) {
       const ref = head.slice(5).trim();
-      const value = textValue(await fsImpl.readFile(join(gitDir, ref), 'utf8')).trim();
-      if (/^[0-9a-f]{40}$/i.test(value)) return value;
+      const refCandidates = [join(gitDir, ref)];
+      let commonDir = gitDir;
+      try {
+        const commondir = textValue(await fsImpl.readFile(join(gitDir, 'commondir'), 'utf8')).trim();
+        if (commondir) {
+          commonDir = resolve(gitDir, commondir);
+          refCandidates.push(join(commonDir, ref));
+        }
+      } catch { /* a normal repository keeps refs in its own .git directory */ }
+      for (const refPath of refCandidates) {
+        try {
+          const value = textValue(await fsImpl.readFile(refPath, 'utf8')).trim();
+          if (/^[0-9a-f]{40}$/i.test(value)) return value;
+        } catch { /* try the next ref location or packed-refs */ }
+      }
+      for (const packedPath of [join(gitDir, 'packed-refs'), join(commonDir, 'packed-refs')]) {
+        try {
+          const packed = textValue(await fsImpl.readFile(packedPath, 'utf8'));
+          for (const line of packed.split(/\r?\n/)) {
+            const [value, packedRef] = line.trim().split(/\s+/, 2);
+            if (packedRef === ref && /^[0-9a-f]{40}$/i.test(value)) return value;
+          }
+        } catch { /* candidate fixtures may omit packed refs */ }
+      }
     }
   } catch { /* candidate exports do not need a .git directory */ }
   return null;
