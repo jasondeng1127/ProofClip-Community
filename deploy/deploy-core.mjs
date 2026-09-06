@@ -28,8 +28,18 @@ const REQUIRED_FILES = [
   'worker/scripts/bundle-worker.mjs',
   'deploy/wrangler.template.jsonc'
 ];
-const FORBIDDEN_PATH = /(^|\/)(?:audit|\.audit|\.wrangler|runtime-evidence|release\/records|release\/artifacts|release\/tmp|release-record(?:s)?)(?:\/|$)|(?:^|[-_.\/])(?:commercial|fresh|diagnostic|rc)(?:[-_.\/]|$)/i;
 const ENVIRONMENT_IDENTITY = /(?:https:\/\/[^\s"'<>]+\.workers\.dev|chrome-extension:\/\/[a-p]{32}|(?:CF_ACCOUNT_ID|CLOUDFLARE_ACCOUNT_ID|D1_DATABASE_ID|WORKER_ID)\s*=\s*[A-Za-z0-9_-]{4,})/i;
+const STAGED_ROOTS = ['extension/src', 'worker/src', 'worker/migrations', 'worker/scripts'];
+const FORBIDDEN_SEGMENTS = new Set([
+  'audit',
+  '.audit',
+  '.wrangler',
+  'runtime',
+  'runtime-evidence',
+  'local-runtime',
+  'release-record',
+  'release-records'
+]);
 
 const defaultFs = { readFile, writeFile, mkdir, rm, cp, readdir, access, stat };
 
@@ -73,19 +83,33 @@ async function walkFiles(fsImpl, root, current = root, result = []) {
   try {
     entries = await fsImpl.readdir(current, { withFileTypes: true });
   } catch {
-    return result;
+    fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate tree could not be scanned safely.');
   }
   for (const entry of entries) {
     const path = join(current, entry.name);
     const relativePath = normalizeRelative(relative(root, path));
     if (entry.isDirectory?.()) {
-      if (FORBIDDEN_PATH.test(relativePath)) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate contains a forbidden release or environment identity.');
+      if (isForbiddenCandidatePath(relativePath)) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate contains a forbidden release or environment identity.');
       await walkFiles(fsImpl, root, path, result);
     } else if (entry.isFile?.() || !entry.isDirectory) {
       result.push({ path, relativePath });
     }
   }
   return result;
+}
+
+function isForbiddenCandidatePath(relativePath) {
+  const normalized = normalizeRelative(relativePath).toLowerCase();
+  const segments = normalized.split('/').filter(Boolean);
+  const fileName = segments.at(-1) || '';
+  if (segments.some((segment) => FORBIDDEN_SEGMENTS.has(segment))) return true;
+  if (segments.includes('release') && ['records', 'artifacts', 'tmp'].includes(segments[segments.indexOf('release') + 1])) return true;
+  if (/^proofclip-community-rc\d+(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/(?:^|[-_.])rc\d+(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/^(?:release[-_.])?record(?:s)?(?:[-_.]|$)/i.test(fileName)) return true;
+  if (/^audit[-_.]/i.test(fileName)) return true;
+  if (/^(?:commercial|fresh|diagnostic)(?:[-_.]|$)/i.test(fileName)) return true;
+  return false;
 }
 
 function parseEnvText(content) {
@@ -152,7 +176,7 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
   const files = await walkFiles(fsImpl, root);
   for (const { relativePath, path } of files) {
     if (relativePath === envRelative) continue;
-    if (FORBIDDEN_PATH.test(relativePath)) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate contains a forbidden release or environment identity.');
+    if (isForbiddenCandidatePath(relativePath)) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate contains a forbidden release or environment identity.');
     if (relativePath.endsWith('.env') || relativePath.endsWith('.dev.vars')) {
       fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate contains an environment file.');
     }
@@ -179,7 +203,10 @@ async function validateCandidate({ repoRoot, envPath, fsImpl }) {
   } catch { fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate manifest key is invalid.'); }
   if (extensionId !== STABLE_EXTENSION_ID) fail('CANDIDATE_PROVENANCE_FAILED', 'The candidate manifest key does not match the stable Community identity.');
 
-  const identityFiles = REQUIRED_FILES.map((file) => join(root, ...file.split('/')));
+  const identityFiles = files
+    .filter(({ relativePath }) => STAGED_ROOTS.some((stagedRoot) => relativePath === stagedRoot || relativePath.startsWith(`${stagedRoot}/`)) || relativePath === 'deploy/wrangler.template.jsonc')
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+    .map(({ path }) => path);
   const hash = createHash('sha256');
   for (const file of identityFiles) hash.update(normalizeRelative(relative(root, file))).update('\0').update(textValue(await fsImpl.readFile(file))).update('\0');
   const candidateSha256 = hash.digest('hex');
@@ -267,6 +294,27 @@ async function healthCheck({ fetchImpl, workerOrigin, extensionId }) {
     let response;
     try { response = await fetchImpl(url.href, options); } catch { fail('HEALTH_CHECK_FAILED', 'The deployed Worker health check failed.'); }
     if (!response || response.status !== 200) fail('HEALTH_CHECK_FAILED', 'The deployed Worker health check failed.');
+    if (url.pathname === '/privacy') continue;
+    const allowOrigin = typeof response.headers?.get === 'function'
+      ? response.headers.get('Access-Control-Allow-Origin')
+      : null;
+    if (allowOrigin !== extensionOrigin || typeof response.json !== 'function') {
+      fail('HEALTH_CHECK_FAILED', 'The deployed Worker health response is invalid.');
+    }
+    let body;
+    try { body = await response.json(); } catch { fail('HEALTH_CHECK_FAILED', 'The deployed Worker health response is invalid.'); }
+    if (url.pathname === '/v1/auth/start') {
+      if (!body || typeof body !== 'object' || typeof body.authorizationUrl !== 'string' || body.authorizationUrl.trim() === '') {
+        fail('HEALTH_CHECK_FAILED', 'The deployed Worker OAuth health response is invalid.');
+      }
+    } else if (
+      !body
+      || typeof body !== 'object'
+      || typeof body.connected !== 'boolean'
+      || (body.updatedAt !== null && typeof body.updatedAt !== 'string')
+    ) {
+      fail('HEALTH_CHECK_FAILED', 'The deployed Worker connection health response is invalid.');
+    }
   }
 }
 
@@ -350,6 +398,8 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
       extensionId: candidate.extensionId,
       notionClientId: env.notionClientId,
       redirectUri: callbackUrl,
+      candidateCommit: candidate.candidateCommit,
+      candidateSha256: candidate.candidateSha256,
       fsImpl,
       writeState: false
     });
@@ -365,15 +415,17 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
     spawnImpl
   });
 
-  const vaultKey = generateVaultKey();
   safeRunnerError(await runner.run(['secret', 'put', 'NOTION_CLIENT_SECRET'], {
     input: `${env.notionClientSecret}\n`,
     redact: [env.notionClientSecret]
   }), 'WRANGLER_FAILED', 'store the Notion client secret');
-  safeRunnerError(await runner.run(['secret', 'put', 'TOKEN_VAULT_KEY'], {
-    input: `${vaultKey}\n`,
-    redact: [vaultKey]
-  }), 'WRANGLER_FAILED', 'store the token vault key');
+  if (ownership.workerAction === 'create') {
+    const vaultKey = generateVaultKey();
+    safeRunnerError(await runner.run(['secret', 'put', 'TOKEN_VAULT_KEY'], {
+      input: `${vaultKey}\n`,
+      redact: [vaultKey]
+    }), 'WRANGLER_FAILED', 'store the token vault key');
+  }
 
   for (const file of ['src/schema.sql', 'migrations/20260813_privacy_nonretention.sql']) {
     safeRunnerError(await runner.run(['d1', 'execute', D1_NAME, '--file', file, '--remote']), 'D1_INITIALIZATION_FAILED', 'initialize the Community D1 database');

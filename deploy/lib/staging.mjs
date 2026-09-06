@@ -59,6 +59,10 @@ function renderFromTemplate(template, values) {
     NOTION_REDIRECT_URI: requiredText('redirectUri', values.redirectUri),
     PROOFCLIP_DEPLOYMENT_MARKER: requiredText('marker', values.marker)
   };
+  if (values.candidateCommit && values.candidateSha256) {
+    config.vars.PROOFCLIP_CANDIDATE_COMMIT = requiredText('candidateCommit', values.candidateCommit);
+    config.vars.PROOFCLIP_CANDIDATE_SHA256 = requiredText('candidateSha256', values.candidateSha256);
+  }
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
@@ -69,7 +73,9 @@ export function renderWranglerConfig({
   extensionId,
   notionClientId,
   redirectUri,
-  marker = DEPLOYMENT_MARKER
+  marker = DEPLOYMENT_MARKER,
+  candidateCommit,
+  candidateSha256
 }) {
   return renderFromTemplate(readTemplate(TEMPLATE_PATH), {
     workerName,
@@ -78,7 +84,9 @@ export function renderWranglerConfig({
     extensionId,
     notionClientId,
     redirectUri,
-    marker
+    marker,
+    candidateCommit,
+    candidateSha256
   });
 }
 
@@ -109,6 +117,8 @@ export async function createStagingTree({
   extensionId,
   notionClientId,
   redirectUri,
+  candidateCommit,
+  candidateSha256,
   fsImpl = defaultFs,
   execFileImpl = execFileAsync,
   writeState = true
@@ -158,7 +168,9 @@ export async function createStagingTree({
     extensionId,
     notionClientId,
     redirectUri,
-    marker: DEPLOYMENT_MARKER
+    marker: DEPLOYMENT_MARKER,
+    candidateCommit,
+    candidateSha256
   });
   await fsImpl.writeFile(configPath, renderedConfig, 'utf8');
 

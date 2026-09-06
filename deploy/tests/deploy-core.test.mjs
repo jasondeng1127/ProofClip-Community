@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,6 +14,7 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const manifestPath = join(repoRoot, 'extension', 'src', 'manifest.json');
 const templatePath = join(repoRoot, 'deploy', 'wrangler.template.jsonc');
 const stableIdentity = await readStableExtensionIdentity(manifestPath);
+const stableExtensionOrigin = `chrome-extension://${stableIdentity.extensionId}`;
 
 const SENTINELS = {
   cfApiToken: 'cf-api-token-sentinel',
@@ -87,7 +89,12 @@ function createWranglerSpawn({ events, remote, secretInputs }) {
           : args[0] === 'deploy' ? 'deploy' : 'version';
       events.push(label);
       if (args[0] === 'secret') secretInputs.push({ args: [...args], input, options });
-      if (args[0] === 'deploy') remote.deployed = true;
+      if (args[0] === 'deploy') {
+        const config = JSON.parse(readFileSync(join(options.cwd, 'wrangler.jsonc'), 'utf8'));
+        remote.worker.vars.PROOFCLIP_CANDIDATE_COMMIT = config.vars.PROOFCLIP_CANDIDATE_COMMIT;
+        remote.worker.vars.PROOFCLIP_CANDIDATE_SHA256 = config.vars.PROOFCLIP_CANDIDATE_SHA256;
+        remote.deployed = true;
+      }
       child.stdout.end(args[0] === 'deploy'
         ? 'Uploaded proofclip-community\nhttps://proofclip-community.example.workers.dev\nVersion ID: worker-version-sentinel\n'
         : args[0] === '--version' ? 'wrangler 4.129.0\n' : 'Success\n');
@@ -98,12 +105,22 @@ function createWranglerSpawn({ events, remote, secretInputs }) {
   };
 }
 
-function createFetchMock({ events, remote }) {
+function createFetchMock({ events, remote, health = {} }) {
   return async (url, options = {}) => {
     const parsed = new URL(url);
     if (parsed.origin === remote.workerOrigin) {
       events.push(`health:${parsed.pathname}`);
-      return { status: 200, async json() { return { ok: true }; } };
+      const corsOrigin = health.corsOrigin === undefined ? stableExtensionOrigin : health.corsOrigin;
+      const headers = {
+        get(name) { return name.toLowerCase() === 'access-control-allow-origin' ? corsOrigin : null; }
+      };
+      if (parsed.pathname === '/v1/auth/start') {
+        return { status: health.authStatus ?? 200, headers, async json() { return health.authJson ?? { authorizationUrl: 'https://api.notion.com/v1/oauth/authorize?state=mock' }; } };
+      }
+      if (parsed.pathname === '/v1/connection') {
+        return { status: health.connectionStatus ?? 200, headers, async json() { return health.connectionJson ?? { connected: false, updatedAt: null }; } };
+      }
+      return { status: health.privacyStatus ?? 200, headers, async json() { return { ok: true }; } };
     }
     const path = parsed.pathname;
     if (path.endsWith('/user/tokens/verify')) {
@@ -223,8 +240,6 @@ test('runDeployment performs the offline deployment contract in order and writes
 
     const firstCreateCount = events.filter((event) => event === 'd1-create').length;
     const persisted = JSON.parse(stateText);
-    remote.worker.candidateCommit = persisted.candidateCommit;
-    remote.worker.candidateSha256 = persisted.candidateSha256;
     const second = await runDeployment({
       repoRoot: fixture.root,
       envPath: fixture.envPath,
@@ -237,6 +252,7 @@ test('runDeployment performs the offline deployment contract in order and writes
     assert.equal(second.accountId, result.accountId);
     assert.equal(second.workerOrigin, result.workerOrigin);
     assert.equal(events.filter((event) => event === 'd1-create').length, firstCreateCount);
+    assert.equal(secretInputs.filter(({ args }) => args[2] === 'TOKEN_VAULT_KEY').length, 1);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -262,6 +278,72 @@ test('candidate provenance failure happens before credentials or resource creati
       (error) => error.code === 'CANDIDATE_PROVENANCE_FAILED'
     );
     assert.deepEqual(events, []);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+for (const [label, relativePath] of [
+  ['RC candidate directory', 'proofclip-community-rc1-package/marker.txt'],
+  ['release record file', 'release-record.json'],
+  ['audit report file', 'audit-report.md'],
+  ['local runtime directory', 'runtime/state.json'],
+]) {
+  test(`candidate ${label} fails before any network or create call`, async () => {
+    const fixture = await createCandidate();
+    const events = [];
+    const remote = configureRemote();
+    try {
+      const contaminatedPath = join(fixture.root, relativePath);
+      await mkdir(dirname(contaminatedPath), { recursive: true });
+      await writeFile(contaminatedPath, 'forbidden candidate identity');
+      const { runDeployment } = await import('../deploy-core.mjs');
+      await assert.rejects(
+        runDeployment({
+          repoRoot: fixture.root,
+          envPath: fixture.envPath,
+          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          fetchImpl: createFetchMock({ events, remote }),
+          spawnImpl: createWranglerSpawn({ events, remote, secretInputs: [] }),
+          fsImpl: createFsSpy(events),
+        }),
+        (error) => error.code === 'CANDIDATE_PROVENANCE_FAILED'
+      );
+      assert.deepEqual(events, []);
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+}
+
+test('candidate fingerprint covers the complete extension and Worker trees', async () => {
+  const fixture = await createCandidate();
+  const events = [];
+  const remote = configureRemote();
+  const secretInputs = [];
+  const statePath = join(fixture.root, 'deploy', '.state', 'state.json');
+  try {
+    const { runDeployment } = await import('../deploy-core.mjs');
+    await runDeployment({
+      repoRoot: fixture.root,
+      envPath: fixture.envPath,
+      statePath,
+      fetchImpl: createFetchMock({ events, remote }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      fsImpl: createFsSpy(events),
+    });
+    await writeFile(join(fixture.root, 'extension', 'src', 'new-runtime-file.mjs'), 'export const changed = true;\n');
+    await assert.rejects(
+      runDeployment({
+        repoRoot: fixture.root,
+        envPath: fixture.envPath,
+        statePath,
+        fetchImpl: createFetchMock({ events, remote }),
+        spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+        fsImpl: createFsSpy(events),
+      }),
+      (error) => error.code === 'RESOURCE_CONFLICT'
+    );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -376,3 +458,32 @@ test('reported Worker origin mismatch fails closed before state write', async ()
     await rm(fixture.root, { recursive: true, force: true });
   }
 });
+
+for (const [label, health] of [
+  ['malformed OAuth health JSON', { authJson: { ok: true } }],
+  ['malformed connection health JSON', { connectionJson: { ok: true } }],
+  ['incorrect health CORS origin', { corsOrigin: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }],
+]) {
+  test(`${label} fails closed as HEALTH_CHECK_FAILED`, async () => {
+    const fixture = await createCandidate();
+    const events = [];
+    const remote = configureRemote();
+    const secretInputs = [];
+    try {
+      const { runDeployment } = await import('../deploy-core.mjs');
+      await assert.rejects(
+        runDeployment({
+          repoRoot: fixture.root,
+          envPath: fixture.envPath,
+          statePath: join(fixture.root, 'deploy', '.state', 'state.json'),
+          fetchImpl: createFetchMock({ events, remote, health }),
+          spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+          fsImpl: createFsSpy(events),
+        }),
+        (error) => error.code === 'HEALTH_CHECK_FAILED'
+      );
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+}
