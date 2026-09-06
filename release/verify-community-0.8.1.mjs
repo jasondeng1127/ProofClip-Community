@@ -185,13 +185,17 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
   const bundle = files.find((file) => file.path === 'worker/dist/worker.mjs');
   if (bundle && provenance.bundle?.sha256 !== bundle.sha256) findings.push(finding('BUNDLE_HASH_MISMATCH', 'worker/dist/worker.mjs'));
   try {
-    const sidecarText = await readFile(`${root}.sha256`, 'utf8');
-    const sidecarLine = sidecarText.endsWith('\n')
-      ? sidecarText.slice(0, -1).replace(/\r$/, '')
-      : sidecarText;
-    const match = !/[\r\n]/.test(sidecarLine) && /^([0-9a-f]{64})\s{2,}([^\s]+)$/.exec(sidecarLine);
-    if (!match || match[1] !== contentFingerprint) findings.push(finding('SIDECAR_HASH_MISMATCH', 'candidate.sha256'));
-    if (!match || match[2] !== basename(root)) findings.push(finding('SIDECAR_NAME_MISMATCH', 'candidate.sha256'));
+    const sidecarBytes = await readFile(`${root}.sha256`);
+    const expectedSidecar = Buffer.from(`${contentFingerprint}  ${basename(root)}\n`, 'utf8');
+    if (!sidecarBytes.equals(expectedSidecar)) {
+      const sidecarText = sidecarBytes.toString('utf8');
+      const nameMatch = /^([0-9a-f]{64})  ([^\s]+)\n$/.exec(sidecarText);
+      if (nameMatch && nameMatch[1] === contentFingerprint && nameMatch[2] !== basename(root)) {
+        findings.push(finding('SIDECAR_NAME_MISMATCH', 'candidate.sha256'));
+      } else {
+        findings.push(finding('SIDECAR_HASH_MISMATCH', 'candidate.sha256'));
+      }
+    }
   } catch {
     findings.push(finding('SIDECAR_MISSING', 'candidate.sha256'));
   }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { createCommunity081Candidate } from '../export-community-0.8.1.mjs';
 import { verifyCommunity081Candidate } from '../verify-community-0.8.1.mjs';
@@ -201,6 +201,32 @@ test('fails closed independently for file, content, bundle, provenance, sidecar,
       await writeFile(`${candidateDir}.sha256`, `${exported.contentFingerprint}  wrong-candidate-name\n`);
     });
     assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=SIDECAR_NAME_MISMATCH path=candidate.sha256'));
+  });
+  await t.test('rejects every non-canonical sidecar byte form', async () => {
+    const state = await exportFixture();
+    try {
+      const name = basename(state.candidateDir);
+      const hash = state.exported.contentFingerprint;
+      const invalidForms = [
+        ['no final LF', `${hash}  ${name}`],
+        ['CRLF', `${hash}  ${name}\r\n`],
+        ['extra LF', `${hash}  ${name}\n\n`],
+        ['three spaces', `${hash}   ${name}\n`],
+        ['tab separator', `${hash}\t\t${name}\n`],
+        ['mixed separators', `${hash}  ${name}\\suffix\n`],
+        ['leading whitespace', ` ${hash}  ${name}\n`],
+        ['trailing whitespace', `${hash}  ${name} \n`],
+        ['uppercase hash', `${hash.toUpperCase()}  ${name}\n`],
+      ];
+      for (const [label, bytes] of invalidForms) {
+        await writeFile(`${state.candidateDir}.sha256`, bytes);
+        const result = await verifyCommunity081Candidate({ candidateDir: state.candidateDir, expectedCommit: state.commit, expectedFingerprint: hash });
+        assert.equal(result.ok, false, label);
+        assert.ok(result.findings.some((finding) => /SIDECAR_(HASH|NAME)_MISMATCH/.test(finding)), `${label}: ${JSON.stringify(result.findings)}`);
+      }
+    } finally {
+      await rm(state.root, { recursive: true, force: true });
+    }
   });
   await t.test('unallowlisted file', async () => {
     const result = await verifyMutation(async ({ candidateDir }) => {

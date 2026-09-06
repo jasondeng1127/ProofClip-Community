@@ -44,7 +44,8 @@ The exporter exclusively reserves a new candidate directory, creates a
 randomized ownership marker, and verifies that marker plus filesystem identity
 before reading the HEAD tree or source objects. It rejects an existing
 candidate directory or sibling `.sha256` sidecar before writing. The sidecar
-must contain the complete fingerprint and the exact candidate basename. The
+must contain exactly the exporter bytes: 64 lowercase hex digits, two ASCII
+spaces, the non-whitespace candidate basename, and one final LF. The
 verifier uses non-following directory-entry checks and rejects candidate
 symlinks or other non-regular entries with category/path findings only.
 
