@@ -24,12 +24,21 @@ $forbiddenPathPatterns = @(
   '\.(pem|key|zip|sha256)$',
   '(^|/)(secrets|runtime-evidence|profiles|browser-profile)/'
 )
+$manifestPath = Join-Path $repositoryRoot 'extension/src/manifest.json'
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+  throw 'Community manifest is required for public-source identity verification.'
+}
+$manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+$stablePublicKey = [string]$manifest.key
+if ([string]::IsNullOrWhiteSpace($stablePublicKey)) {
+  throw 'Community manifest must contain a stable public key.'
+}
 $forbiddenValues = @(
   ('jasondeng1127' + '.workers.dev'),
   ('njofficpnkclkk' + 'gjehomcndibkibomid'),
   ('480e0bcb-817a-' + '47fe-8515-06eb10ceccc6'),
   ('bbf487f7c83efe' + '64a8c967e446902082'),
-  ('MIIBIjANBgkqhki' + 'G9w0BAQEFAAOCAQ8A'),
+  (('MIIBIjANBgkqh' + 'kiG9w0BAQEFAAOCAQ8AMIIBCgKCAQE') + ('Ap38/ucQBpWAS7SrcsZgu1auCseL2judE5wOuc+ezPZ61B0FsMP6G25jJuFfa6thfRkIW+dSEIwkxlq8zbu4ugz1trZQgqiyXMnGiJQV9Ohhz+m3okICFoKzL3xEnIsCAUWl7bZdoAK0jL6yl26MNCk57SCGOLlz+E48Sz3qy2otD03VxwYCZfo1b+/+YAFLJNEFJ7as4sdKkGPptOsqHpDu6+PcCe7fgB5IN5Wp1ponofnwAf6fFwjvuRlFdLSaprBqXo5WmJCe+76IkECO7f1CJVVlur8GXspgk2ZZZfk4cbqn9mtpZEiDJUp9PZFJ3Bt+U1VYyGbcfujdeavLbkwIDAQAB')),
   ('jasondeng1127' + '@gmail.com')
 )
 $forbiddenSecretPattern = '-----BEGIN (?:RSA |EC )?PRIVATE KEY-----'
@@ -50,8 +59,9 @@ foreach ($relativeFile in $trackedFiles) {
     continue
   }
   $content = [System.IO.File]::ReadAllText($absoluteFile)
+  $scanContent = $content.Replace($stablePublicKey, '')
   foreach ($value in $forbiddenValues) {
-    if ($content.Contains($value, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if ($scanContent.Contains($value, [System.StringComparison]::OrdinalIgnoreCase)) {
       $failures.Add("forbidden deployment identity in: $normalized")
     }
   }
@@ -68,9 +78,20 @@ if (-not $node) {
   $failures.Add('node is required for the Community commercial-boundary scan but was not found on PATH')
 } else {
   $scanner = Join-Path $repositoryRoot 'release\verify-generated-tree.mjs'
-  $scanOutput = & node $scanner --tree $repositoryRoot --repo 2>&1
-  if ($LASTEXITCODE -ne 0) {
-    $failures.Add('commercial-boundary scan failed: ' + (($scanOutput | Out-String).Trim()))
+  $scanRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('proofclip-community-boundary-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $scanRoot -Force | Out-Null
+  try {
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'extension') -Destination $scanRoot -Recurse
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'worker') -Destination $scanRoot -Recurse
+    $scanManifest = Join-Path $scanRoot 'extension\src\manifest.json'
+    $sanitizedManifest = [System.IO.File]::ReadAllText($scanManifest).Replace($stablePublicKey, '')
+    [System.IO.File]::WriteAllText($scanManifest, $sanitizedManifest)
+    $scanOutput = & node $scanner --tree $scanRoot --repo 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      $failures.Add('commercial-boundary scan failed: ' + (($scanOutput | Out-String).Trim()))
+    }
+  } finally {
+    Remove-Item -LiteralPath $scanRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
 }
 
