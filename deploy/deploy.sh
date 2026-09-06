@@ -2,6 +2,11 @@
 
 set -u
 
+if [ "$#" -ne 0 ]; then
+  printf '%s\n' 'This deployment wrapper does not accept positional arguments.' >&2
+  exit 2
+fi
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 WRANGLER_PATH="$SCRIPT_DIR/node_modules/.bin/wrangler"

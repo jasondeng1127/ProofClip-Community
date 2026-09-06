@@ -19,7 +19,10 @@ test('PowerShell entrypoint delegates from the candidate root', () => {
   assert.match(source, /deploy-core\.mjs/);
   assert.match(source, /deploy\.env/);
   assert.match(source, /npm\s+ci\s+--prefix\s+deploy/);
-  assert.match(source, /node_modules\/\.bin\/wrangler/);
+  assert.match(source, /node_modules\/\.bin\/\$wranglerExecutable/);
+  assert.match(source, /\$IsWindows/);
+  assert.match(source, /wrangler\.cmd/);
+  assert.match(source, /wrangler/);
   assert.match(source, /Test-Path[\s\S]*\$wranglerPath/);
   assert.match(source, /exit \$exitCode/);
   assert.doesNotMatch(source, /NOTION_CLIENT_SECRET=/);
@@ -38,6 +41,15 @@ test('POSIX entrypoint delegates from the candidate root', () => {
   assert.match(source, /command\s+-v\s+npm/);
   assert.match(source, /node_modules\/\.bin\/wrangler/);
   assert.match(source, /\[\s*!\s+-e\s+"\$WRANGLER_PATH"\s+\]/);
+  assert.ok(source.includes('"$#" -ne 0'), 'POSIX wrapper must compare the argument count');
+  assert.match(source, /does not accept positional arguments/);
+  assert.match(source, /exit 2/);
+  const argumentGuard = source.indexOf('"$#" -ne 0');
+  assert.ok(argumentGuard >= 0, 'POSIX wrapper must guard positional arguments');
+  assert.ok(argumentGuard < source.indexOf('command -v node'), 'POSIX argument guard must run before command checks');
+  assert.ok(argumentGuard < source.indexOf('npm ci --prefix deploy'), 'POSIX argument guard must run before install');
+  assert.ok(argumentGuard < source.indexOf('node deploy/deploy-core.mjs'), 'POSIX argument guard must run before execution');
+  assert.doesNotMatch(source, /printf[\s\S]*\$[@*]/);
   assert.match(source, /exit \$\?/);
   assert.doesNotMatch(source, /NOTION_CLIENT_SECRET=/);
   assert.doesNotMatch(source, /TOKEN_VAULT_KEY=/);

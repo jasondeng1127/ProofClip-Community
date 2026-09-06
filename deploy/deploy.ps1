@@ -4,7 +4,8 @@ param()
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
-$wranglerPath = Join-Path $repoRoot 'deploy/node_modules/.bin/wrangler'
+$wranglerExecutable = if ($IsWindows) { 'wrangler.cmd' } else { 'wrangler' }
+$wranglerPath = Join-Path $repoRoot "deploy/node_modules/.bin/$wranglerExecutable"
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 $npmCommand = Get-Command npm -ErrorAction SilentlyContinue
 
