@@ -172,7 +172,7 @@ function assertOwnedWorker(worker, d1, expected) {
   }
 }
 
-export async function resolveDeploymentResources({ cloudflare, state = null, candidate, names = {} }) {
+export async function resolveDeploymentResources({ cloudflare, state = null, candidate, names = {}, accountId: preflightAccountId = null }) {
   if (!cloudflare || typeof cloudflare.listAccounts !== 'function') throw new TypeError('cloudflare client is required');
   if (!candidate || typeof candidate !== 'object') throw new TypeError('candidate is required');
   assertClosedState(state);
@@ -186,11 +186,15 @@ export async function resolveDeploymentResources({ cloudflare, state = null, can
   const workerOrigin = originFromCandidate(candidate);
   const redirectUri = buildNotionRedirectUri(workerOrigin);
 
-  if (typeof cloudflare.verifyToken === 'function') await cloudflare.verifyToken();
-  const accounts = usableAccounts(await cloudflare.listAccounts());
-  if (accounts.length === 0) fail('CLOUDFLARE_ACCOUNT_UNAVAILABLE', 'No usable Cloudflare account is available.');
-  if (accounts.length !== 1) fail('CLOUDFLARE_ACCOUNT_AMBIGUOUS', 'Exactly one usable Cloudflare account is required.');
-  const accountId = accounts[0].id;
+  let accountId = preflightAccountId;
+  if (accountId === null || accountId === undefined) {
+    if (typeof cloudflare.verifyToken === 'function') await cloudflare.verifyToken();
+    const accounts = usableAccounts(await cloudflare.listAccounts());
+    if (accounts.length === 0) fail('CLOUDFLARE_ACCOUNT_UNAVAILABLE', 'No usable Cloudflare account is available.');
+    if (accounts.length !== 1) fail('CLOUDFLARE_ACCOUNT_AMBIGUOUS', 'Exactly one usable Cloudflare account is required.');
+    accountId = accounts[0].id;
+  }
+  if (!text(accountId)) fail('CLOUDFLARE_ACCOUNT_UNAVAILABLE', 'No usable Cloudflare account is available.');
   const expected = {
     accountId,
     workerName: resolvedNames.workerName,

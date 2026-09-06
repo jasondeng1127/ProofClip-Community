@@ -5,13 +5,14 @@ import { resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { readStableExtensionIdentity } from './identity.mjs';
+import { decodeManifestKey, deriveExtensionId } from './identity.mjs';
 import { buildNotionRedirectUri, patchCommunityOrigin } from './origin.mjs';
 
 const execFileAsync = promisify(execFile);
 const DEPLOYMENT_MARKER = 'community-0.8.1';
 const CALLBACK_PATH = '/v1/auth/notion/callback';
 const TEMPLATE_PATH = fileURLToPath(new URL('../wrangler.template.jsonc', import.meta.url));
+const defaultFs = { cp, mkdir, readFile, rm, writeFile };
 
 function requiredText(name, value) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -93,10 +94,10 @@ function originFromRedirectUri(redirectUri) {
   return origin;
 }
 
-async function copyDirectory(candidateRoot, stagingRoot, sourceRelative, destinationRelative) {
+async function copyDirectory(candidateRoot, stagingRoot, sourceRelative, destinationRelative, fsImpl) {
   const source = containedPath(candidateRoot, ...sourceRelative.split('/'));
   const destination = containedPath(stagingRoot, ...destinationRelative.split('/'));
-  await cp(source, destination, { recursive: true, force: true });
+  await fsImpl.cp(source, destination, { recursive: true, force: true });
 }
 
 export async function createStagingTree({
@@ -107,7 +108,10 @@ export async function createStagingTree({
   d1Id,
   extensionId,
   notionClientId,
-  redirectUri
+  redirectUri,
+  fsImpl = defaultFs,
+  execFileImpl = execFileAsync,
+  writeState = true
 }) {
   const candidatePath = resolve(requiredText('candidateRoot', candidateRoot));
   const generatedPath = resolve(requiredText('stagingRoot', stagingRoot));
@@ -125,20 +129,25 @@ export async function createStagingTree({
   const statePath = containedPath(generatedPath, 'deployment-state.json');
   const origin = originFromRedirectUri(redirectUri);
 
-  await rm(generatedPath, { recursive: true, force: true });
-  await mkdir(generatedPath, { recursive: true });
-  await copyDirectory(candidatePath, generatedPath, 'extension/src', 'extension');
-  await copyDirectory(candidatePath, generatedPath, 'worker/src', 'worker/src');
-  await copyDirectory(candidatePath, generatedPath, 'worker/migrations', 'worker/migrations');
-  await copyDirectory(candidatePath, generatedPath, 'worker/scripts', 'worker/scripts');
+  await fsImpl.rm(generatedPath, { recursive: true, force: true });
+  await fsImpl.mkdir(generatedPath, { recursive: true });
+  await copyDirectory(candidatePath, generatedPath, 'extension/src', 'extension', fsImpl);
+  await copyDirectory(candidatePath, generatedPath, 'worker/src', 'worker/src', fsImpl);
+  await copyDirectory(candidatePath, generatedPath, 'worker/migrations', 'worker/migrations', fsImpl);
+  await copyDirectory(candidatePath, generatedPath, 'worker/scripts', 'worker/scripts', fsImpl);
 
   const templatePath = containedPath(candidatePath, 'deploy', 'wrangler.template.jsonc');
   const stagedTemplatePath = containedPath(generatedPath, 'deploy', 'wrangler.template.jsonc');
-  await mkdir(containedPath(generatedPath, 'deploy'), { recursive: true });
-  await cp(templatePath, stagedTemplatePath, { force: true });
-  const template = JSON.parse(await readFile(stagedTemplatePath, 'utf8'));
+  await fsImpl.mkdir(containedPath(generatedPath, 'deploy'), { recursive: true });
+  await fsImpl.cp(templatePath, stagedTemplatePath, { force: true });
+  const template = JSON.parse(await fsImpl.readFile(stagedTemplatePath, 'utf8'));
   const stagedManifestPath = containedPath(extensionDir, 'manifest.json');
-  const stagedIdentity = await readStableExtensionIdentity(stagedManifestPath);
+  const stagedManifest = JSON.parse(await fsImpl.readFile(stagedManifestPath, 'utf8'));
+  const stagedIdentity = {
+    extensionId: deriveExtensionId(stagedManifest.key),
+    publicKey: stagedManifest.key
+  };
+  decodeManifestKey(stagedIdentity.publicKey);
   if (stagedIdentity.extensionId !== requiredText('extensionId', extensionId)) {
     throw new TypeError('Extension ID does not match the staged manifest identity');
   }
@@ -151,14 +160,14 @@ export async function createStagingTree({
     redirectUri,
     marker: DEPLOYMENT_MARKER
   });
-  await writeFile(configPath, renderedConfig, 'utf8');
+  await fsImpl.writeFile(configPath, renderedConfig, 'utf8');
 
   const communityConfigPath = containedPath(extensionDir, 'community-config.mjs');
-  const communityConfig = await readFile(communityConfigPath, 'utf8');
-  await writeFile(communityConfigPath, patchCommunityOrigin(communityConfig, origin), 'utf8');
+  const communityConfig = await fsImpl.readFile(communityConfigPath, 'utf8');
+  await fsImpl.writeFile(communityConfigPath, patchCommunityOrigin(communityConfig, origin), 'utf8');
 
   const bundleScript = containedPath(workerDir, 'scripts', 'bundle-worker.mjs');
-  await execFileAsync(process.execPath, [bundleScript], { cwd: workerDir, windowsHide: true });
+  await execFileImpl(process.execPath, [bundleScript], { cwd: workerDir, windowsHide: true });
 
   const state = {
     version: '0.8.1',
@@ -172,7 +181,7 @@ export async function createStagingTree({
     workerDir,
     configPath
   };
-  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  if (writeState) await fsImpl.writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 
   return { extensionDir, workerDir, configPath, statePath };
 }
