@@ -2,6 +2,9 @@ export function normalizeHttpsOrigin(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) {
     throw new TypeError('A valid HTTPS origin is required');
   }
+  if (!/^https:\/\/[^\/?#\\]+\/?$/i.test(value)) {
+    throw new TypeError('A valid HTTPS origin without a path, query, fragment, or credentials is required');
+  }
 
   let url;
   try {

@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { decodeManifestKey, deriveExtensionId, readStableExtensionIdentity } from '../lib/identity.mjs';
 
 const manifestPath = fileURLToPath(new URL('../../extension/src/manifest.json', import.meta.url));
@@ -39,10 +41,21 @@ test('identity decoding rejects empty, malformed Base64, and malformed DER keys'
   assert.throws(() => decodeManifestKey(Buffer.from('not DER').toString('base64')), /DER|public key/i);
 });
 
-test('a changed public key cannot retain the committed Extension ID', () => {
+test('readStableExtensionIdentity rejects a changed valid public key', async () => {
   const changedKey = STABLE_PUBLIC_KEY.replace('oE6c', 'pE6c');
   assert.notEqual(changedKey, STABLE_PUBLIC_KEY);
   assert.notEqual(deriveExtensionId(changedKey), STABLE_EXTENSION_ID);
+  const directory = await mkdtemp(join(tmpdir(), 'proofclip-identity-'));
+  const changedManifestPath = join(directory, 'manifest.json');
+  try {
+    await writeFile(changedManifestPath, JSON.stringify({ manifest_version: 3, version: '0.8.1', key: changedKey }));
+    await assert.rejects(
+      readStableExtensionIdentity(changedManifestPath),
+      /stable public key/i
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('the manifest identity contains no private-key material', async () => {

@@ -1,6 +1,8 @@
 import { createHash, createPublicKey } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+const STABLE_PUBLIC_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
+
 function invalidKey(message) {
   return new TypeError(`Invalid manifest public key: ${message}`);
 }
@@ -33,6 +35,7 @@ export function deriveExtensionId(key) {
 export async function readStableExtensionIdentity(manifestPath) {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   if (typeof manifest.key !== 'string') throw invalidKey('manifest.key is required');
+  if (manifest.key !== STABLE_PUBLIC_KEY) throw invalidKey('manifest.key does not match the committed stable public key');
   return {
     publicKey: manifest.key,
     extensionId: deriveExtensionId(manifest.key)

@@ -29,9 +29,9 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
   throw 'Community manifest is required for public-source identity verification.'
 }
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-$stablePublicKey = [string]$manifest.key
-if ([string]::IsNullOrWhiteSpace($stablePublicKey)) {
-  throw 'Community manifest must contain a stable public key.'
+$stablePublicKey = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB'
+if ([string]$manifest.key -cne $stablePublicKey) {
+  throw 'Community manifest public key does not match the committed stable public key.'
 }
 $forbiddenValues = @(
   ('jasondeng1127' + '.workers.dev'),

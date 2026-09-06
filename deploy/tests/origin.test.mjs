@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildNotionRedirectUri, normalizeHttpsOrigin, patchCommunityOrigin } from '../lib/origin.mjs';
 
-test('normalizeHttpsOrigin lowercases a valid HTTPS origin', () => {
+test('normalizeHttpsOrigin accepts and lowercases a valid HTTPS origin', () => {
   assert.equal(normalizeHttpsOrigin('HTTPS://Worker.Example:8443'), 'https://worker.example:8443');
 });
 
@@ -10,18 +10,22 @@ test('normalizeHttpsOrigin rejects HTTP origins', () => {
   assert.throws(() => normalizeHttpsOrigin('http://worker.example'), /HTTPS origin/i);
 });
 
-test('normalizeHttpsOrigin rejects paths, queries, fragments, and credentials', () => {
+test('normalizeHttpsOrigin rejects raw path, query, fragment, and credential syntax', () => {
   for (const value of [
     'https://worker.example/v1',
+    'https://worker.example/.',
+    'https://worker.example//',
     'https://worker.example/?debug=1',
+    'https://worker.example?',
     'https://worker.example/#fragment',
+    'https://worker.example#',
     'https://user:secret@worker.example'
   ]) {
     assert.throws(() => normalizeHttpsOrigin(value), /origin/i, value);
   }
 });
 
-test('normalizeHttpsOrigin removes one trailing slash', () => {
+test('normalizeHttpsOrigin accepts one root trailing slash and removes it', () => {
   assert.equal(normalizeHttpsOrigin('https://worker.example/'), 'https://worker.example');
 });
 
