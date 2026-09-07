@@ -21,8 +21,10 @@ export function runSuites(repoRoot) {
   const extFiles = readdirSync(join(extDir, 'tests')).filter((f) => f.endsWith('.test.mjs') && f !== 'public-source-guard.test.mjs').map((f) => join(extDir, 'tests', f));
   const wrkDir = join(repoRoot, 'worker/src');
   const wrkFiles = readdirSync(join(wrkDir, 'tests')).filter((f) => f.endsWith('.test.mjs')).map((f) => join(wrkDir, 'tests', f));
+  const deploymentContract = join(repoRoot, 'deploy/tests/complete-contract.test.mjs');
   return {
     extension: { ...run(extDir, extFiles), guardSkipped: true, note: 'public-source-guard requires pwsh+git; verified by CI' },
-    worker: run(wrkDir, wrkFiles)
+    worker: run(wrkDir, wrkFiles),
+    deploymentContract: run(repoRoot, [deploymentContract])
   };
 }

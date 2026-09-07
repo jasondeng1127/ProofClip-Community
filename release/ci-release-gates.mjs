@@ -2,7 +2,7 @@
 // One implementation: the same git checks and tag policy as release-audit.
 //   node release/ci-release-gates.mjs [--remote-url <url>] [--with-clone-smoke]
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -18,6 +18,21 @@ function run(cmd, args, cwd = ROOT) {
   catch { return null; }
 }
 
+function offlineCommunity081CandidateArgs() {
+  const candidateDir = join(ROOT, 'release/out/community-0.8.1');
+  const provenancePath = join(candidateDir, 'PROVENANCE.json');
+  if (!existsSync(candidateDir)) {
+    return ['--test', join(ROOT, 'release/tests/community-0.8.1-export.test.mjs'), join(ROOT, 'release/tests/community-0.8.1-provenance.test.mjs')];
+  }
+  const provenance = JSON.parse(readFileSync(provenancePath, 'utf8'));
+  return [
+    join(ROOT, 'release/verify-community-0.8.1.mjs'),
+    `--candidate=${candidateDir}`,
+    `--commit=${provenance.sourceCommit}`,
+    `--fingerprint=${provenance.contentFingerprint}`,
+  ];
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const remoteUrl = args.find((a) => a.startsWith('--remote-url='))?.split('=').slice(1).join('=');
@@ -25,6 +40,15 @@ async function main() {
   const findings = [];
 
   const version = JSON.parse(await import('node:fs/promises').then((m) => m.readFile(join(ROOT, 'extension/src/manifest.json'), 'utf8'))).version;
+
+  // Community 0.8.1 feature gates are offline only: candidate provenance and
+  // the deployment contract never contact Cloudflare, Notion, or any remote API.
+  const candidateVerifier = run(process.execPath, offlineCommunity081CandidateArgs());
+  if (!candidateVerifier) findings.push('COMMUNITY_0_8_1_CANDIDATE_VERIFIER_FAILED: offline candidate verifier failed');
+  else console.log('Community 0.8.1 candidate verifier: PASS (offline)');
+  const deploymentContract = run(process.execPath, ['--test', join(ROOT, 'deploy/tests/complete-contract.test.mjs')]);
+  if (!deploymentContract) findings.push('COMMUNITY_0_8_1_DEPLOYMENT_CONTRACT_FAILED: offline deployment contract failed');
+  else console.log('Community 0.8.1 deployment contract: PASS (offline)');
 
   // Default branch == main.
   const symref = run('git', ['ls-remote', '--symref', 'origin', 'HEAD']);

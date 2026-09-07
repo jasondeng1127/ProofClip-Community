@@ -43,6 +43,26 @@
 | `node release/cut-release.mjs` | 切包 | ZIP + SHA256 + release record + EDITION_DIFF_REPORT |
 | `node release/verify-cloned-tree.mjs --remote <url> --record` | clone 冒烟 | 全新 clone 必须就是当前公开版本 |
 
+### Community 0.8.1 deployment-layer checks
+
+Community 0.8.1 的部署层检查保持离线：候选 provenance verifier 与
+deployment-contract suite 不访问 Cloudflare、Notion、OAuth 或实时部署。
+完整命令清单和人工证据字段见
+`docs/acceptance/community-0.8.1-cloudflare-deploy-gate.md`。
+
+```powershell
+node --test deploy/tests/*.test.mjs
+node --test deploy/tests/identity.test.mjs deploy/tests/origin.test.mjs deploy/tests/wrangler-template-contract.test.mjs extension/src/tests/extension-id.test.mjs
+node --test release/tests/community-0.8.1-export.test.mjs release/tests/community-0.8.1-provenance.test.mjs
+node --test extension/src/tests/*.test.mjs worker/src/tests/*.test.mjs
+node --test deploy/tests/complete-contract.test.mjs
+```
+
+`release/run-suites.mjs` 新增显式 `deploymentContract` 结果，但既有
+0.8.0 extension/Worker suite 的执行与判定语义不变。CI 的这项新增检查
+只运行离线候选 verifier 与 deployment-contract；现有分支/tag 检查和
+显式 `--with-clone-smoke` 的可选行为保持不变。
+
 所有命令支持 `--json`（机器可读）与 `--verbose`（详细）。
 
 ## 输出约定
@@ -55,6 +75,11 @@
 
 机器决定：测试/对齐/版本/能力/基线/文件/clone/artifact/worktree/README 资产。
 人决定：是否接受产品变化、是否批准提前下放、NOT_APPLICABLE 是否合理、是否正式发布。
+
+Community 0.8.1 的 Cloudflare/Notion/OAuth/Chrome 人工部署属于独立的人类
+release gate。机器 PASS、候选目录存在或 Worker 命令成功都不等于
+`COMMUNITY_0.8.1_RELEASE_CANDIDATE_PASS`；只有完成 bounded human gate 并
+由维护者审阅证据后，才可作最终接受决定。
 
 ## 已知事项（2026-08-19）
 
