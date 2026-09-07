@@ -121,7 +121,7 @@ test('PowerShell entrypoint delegates from the candidate root', () => {
   assert.match(source, /\$IsWindows/);
   assert.match(source, /wrangler\.cmd/);
   assert.match(source, /wrangler/);
-  assert.match(source, /Test-Path[\s\S]*\$wranglerPath/);
+  assert.doesNotMatch(source, /Test-Path[\s\S]*\$wranglerPath/);
   assert.match(source, /RemainingArguments/);
   assert.match(source, /does not accept positional arguments/);
   assert.match(source, /exit 2/);
@@ -166,7 +166,7 @@ test('POSIX entrypoint delegates from the candidate root', () => {
   assert.match(source, /RUNTIME_ROOT/);
   assert.match(source, /node_modules\/\.bin\/wrangler/);
   assert.doesNotMatch(source, /SCRIPT_DIR\/node_modules/);
-  assert.match(source, /\[\s*!\s+-e\s+"\$WRANGLER_PATH"\s+\]/);
+  assert.doesNotMatch(source, /\[\s*!\s+-e\s+"\$WRANGLER_PATH"\s+\]/);
   assert.ok(source.includes('"$#" -ne 0'), 'POSIX wrapper must compare the argument count');
   assert.match(source, /does not accept positional arguments/);
   assert.match(source, /exit 2/);
@@ -195,6 +195,15 @@ test('PowerShell wrapper installs outside a candidate and preserves its provenan
     await cp(resolve(repoRoot, 'deploy', 'package-lock.json'), join(deployRoot, 'package-lock.json'));
     await writeFile(join(candidateRoot, 'PROVENANCE.json'), 'immutable provenance sentinel\n');
     await writeFile(join(candidateRoot, 'extension', 'src', 'source.mjs'), 'immutable source sentinel\n');
+    const runtimeRoot = resolve(dirname(candidateRoot), `.${basename(candidateRoot)}-deploy-runtime`);
+    const staleWranglerPath = join(runtimeRoot, 'node_modules', '.bin', 'wrangler.cmd');
+    const originalLock = await readFile(join(deployRoot, 'package-lock.json'), 'utf8');
+    await mkdir(dirname(staleWranglerPath), { recursive: true });
+    await writeFile(join(runtimeRoot, 'package-lock.json'), originalLock);
+    await writeFile(staleWranglerPath, 'stale external Wrangler runtime\n');
+    const changedLock = JSON.parse(originalLock);
+    changedLock.packages[''].dependencies.wrangler = '4.129.1';
+    await writeFile(join(deployRoot, 'package-lock.json'), `${JSON.stringify(changedLock, null, 2)}\n`);
     const before = await snapshotTree(candidateRoot);
     const { bin, npmMarker, nodeMarker } = await createSetupSentinels(fixtureRoot);
     const result = await runProcess(powerShellCommand, [
@@ -205,11 +214,14 @@ test('PowerShell wrapper installs outside a candidate and preserves its provenan
     ], { cwd: candidateRoot, env: withFakePath(bin) });
 
     assert.equal(result.code, 97);
-    const runtimeRoot = resolve(dirname(candidateRoot), `.${basename(candidateRoot)}-deploy-runtime`);
     const npmArgs = await readFile(npmMarker, 'utf8');
     assert.match(npmArgs, /ci/);
     assert.ok(npmArgs.includes(`--prefix ${runtimeRoot}`), npmArgs);
     assert.match(npmArgs, /--cache/);
+    assert.equal(
+      await readFile(join(runtimeRoot, 'package-lock.json'), 'utf8'),
+      await readFile(join(deployRoot, 'package-lock.json'), 'utf8')
+    );
     assert.match(await readFile(nodeMarker, 'utf8'), /deploy[\\/]deploy-core\.mjs/);
     assert.equal(existsSync(join(candidateRoot, 'deploy', 'node_modules')), false);
     assert.deepEqual(await snapshotTree(candidateRoot), before);

@@ -33,17 +33,15 @@ if ($null -eq $npmCommand) {
 $exitCode = 0
 Push-Location -LiteralPath $repoRoot
 try {
-  if (-not (Test-Path -LiteralPath $wranglerPath -PathType Leaf)) {
-    New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'deploy/package.json') -Destination (Join-Path $runtimeRoot 'package.json') -Force
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'deploy/package-lock.json') -Destination (Join-Path $runtimeRoot 'package-lock.json') -Force
-    Push-Location -LiteralPath $runtimeRoot
-    try {
-      npm ci --prefix $runtimeRoot --cache $npmCachePath --no-audit --no-fund
-      $exitCode = $LASTEXITCODE
-    } finally {
-      Pop-Location
-    }
+  New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+  Copy-Item -LiteralPath (Join-Path $repoRoot 'deploy/package.json') -Destination (Join-Path $runtimeRoot 'package.json') -Force
+  Copy-Item -LiteralPath (Join-Path $repoRoot 'deploy/package-lock.json') -Destination (Join-Path $runtimeRoot 'package-lock.json') -Force
+  Push-Location -LiteralPath $runtimeRoot
+  try {
+    npm ci --prefix $runtimeRoot --cache $npmCachePath --no-audit --no-fund
+    $exitCode = $LASTEXITCODE
+  } finally {
+    Pop-Location
   }
 
   if ($exitCode -eq 0) {

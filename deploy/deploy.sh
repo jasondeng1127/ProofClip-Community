@@ -24,18 +24,16 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 127
 fi
 
-if [ ! -e "$WRANGLER_PATH" ]; then
-  mkdir -p "$RUNTIME_ROOT" || exit 1
-  cp "$REPO_ROOT/deploy/package.json" "$RUNTIME_ROOT/package.json" || exit 1
-  cp "$REPO_ROOT/deploy/package-lock.json" "$RUNTIME_ROOT/package-lock.json" || exit 1
-  (
-    cd "$RUNTIME_ROOT" || exit 1
-    npm ci --prefix "$RUNTIME_ROOT" --cache "$NPM_CACHE_PATH" --no-audit --no-fund
-  )
-  install_status=$?
-  if [ "$install_status" -ne 0 ]; then
-    exit "$install_status"
-  fi
+mkdir -p "$RUNTIME_ROOT" || exit 1
+cp "$REPO_ROOT/deploy/package.json" "$RUNTIME_ROOT/package.json" || exit 1
+cp "$REPO_ROOT/deploy/package-lock.json" "$RUNTIME_ROOT/package-lock.json" || exit 1
+(
+  cd "$RUNTIME_ROOT" || exit 1
+  npm ci --prefix "$RUNTIME_ROOT" --cache "$NPM_CACHE_PATH" --no-audit --no-fund
+)
+install_status=$?
+if [ "$install_status" -ne 0 ]; then
+  exit "$install_status"
 fi
 
 cd "$REPO_ROOT" || exit 1
