@@ -34,6 +34,7 @@ const goodGit = {
 const goodSuites = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 }, deploymentContract: { ok: true, pass: 1, fail: 0 } });
 const failingWorker = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: false, pass: 0, fail: 3 }, deploymentContract: { ok: true, pass: 1, fail: 0 } });
 const failingDeploymentContract = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 }, deploymentContract: { ok: false, pass: 0, fail: 1 } });
+const missingDeploymentContract = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 } });
 
 test('FLOW-01: a normal extension change passes FAST preflight', async () => {
   const root = await communityFixture();
@@ -94,6 +95,30 @@ test('FLOW-13: the Community 0.8.1 gate document runs and fails closed on the de
   await rm(root, { recursive: true, force: true });
 });
 
+test('FLOW-15: a release-only change fails closed when the deployment contract result is missing', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: missingDeploymentContract, changedFiles: ['release/run-suites.mjs'] });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.suitesRan, true);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.ok(report.findings.includes('deployment contract result missing'));
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-16: STANDARD preflight fails closed when the deployment contract result is missing', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({
+    mode: 'standard', repoRoot: root, gitImpl: goodGit, suitesImpl: missingDeploymentContract,
+    scanImpl: async () => ({ ok: true, findings: [], fileCount: 0 }), capImpl: async () => ({ ok: true, findings: [], skipped: false, report: null })
+  });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.ok(report.findings.includes('deployment contract result missing'));
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
+  await rm(root, { recursive: true, force: true });
+});
+
 test('FLOW-03: an unknown workspace fails closed', async () => {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-nows-'));
   const report = await runPreflight({ mode: 'standard', repoRoot: root, gitImpl: goodGit, suitesImpl: goodSuites });
@@ -145,6 +170,24 @@ test('FLOW-11: release audit include-tests fails when deployment contract fails'
   await rm(root, { recursive: true, force: true });
 });
 
+test('FLOW-17: release audit include-tests fails when the deployment contract result is missing', async () => {
+  const root = await communityFixture();
+  const result = await releaseAudit({
+    repoRoot: root,
+    recordsDir: join(root, 'release/records'),
+    boundaryFile: join(releaseRoot, 'edition-boundary.json'),
+    provenanceFile: join(releaseRoot, 'provenance/community-0.8.0.json'),
+    capabilityManifest: join(releaseRoot, 'capability-manifest.json'),
+    includeTests: true,
+    gitImpl: goodGit,
+    suitesImpl: missingDeploymentContract,
+  });
+  assert.equal(result.gates.suites.deploymentContract, undefined);
+  assert.ok(result.findings.includes('deployment contract result missing'));
+  assert.equal(result.ok, false);
+  await rm(root, { recursive: true, force: true });
+});
+
 test('FLOW-06: correct Community baseline/parity passes release-ready orchestration', async () => {
   const root = await communityFixture();
   const report = await runPreflight({
@@ -185,7 +228,7 @@ test('FLOW-08: a README-only change runs FAST without heavy product suites', asy
 test('FLOW-14: an unrelated documentation change keeps FAST product-suite skip semantics', async () => {
   const root = await communityFixture();
   let suitesCalled = 0;
-  const spySuites = () => { suitesCalled += 1; return failingDeploymentContract(); };
+  const spySuites = () => { suitesCalled += 1; return missingDeploymentContract(); };
   const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: spySuites, changedFiles: ['docs/engineering-notes.md'] });
   assert.equal(report.ok, true, JSON.stringify(report.findings));
   assert.equal(suitesCalled, 0, 'product suites must remain skipped for unrelated documentation changes');

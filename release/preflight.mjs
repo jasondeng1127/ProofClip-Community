@@ -60,7 +60,7 @@ const NEXT_ACTION_MAP = [
   { match: /DEFAULT_BRANCH_SOURCE_MISMATCH/, code: 'DEFAULT_BRANCH_SOURCE_MISMATCH', next: 'INTEGRATE_ACCEPTED_RUNTIME_CHANGES_INTO_MAIN_BEFORE_RELEASE' },
   { match: /extension suite failed/, code: 'EXTENSION_TESTS_FAILED', next: 'RUN_EXTENSION_TESTS_AND_FIX_BEFORE_MERGE' },
   { match: /worker suite failed/, code: 'WORKER_TESTS_FAILED', next: 'RUN_WORKER_TESTS_AND_FIX_BEFORE_MERGE' },
-  { match: /deployment contract failed/, code: 'DEPLOYMENT_CONTRACT_FAILED', next: 'RUN_COMMUNITY_0_8_1_DEPLOYMENT_CONTRACT_AND_FIX_BEFORE_MERGE' },
+  { match: /deployment contract (?:failed|result missing)/, code: 'DEPLOYMENT_CONTRACT_FAILED', next: 'RUN_COMMUNITY_0_8_1_DEPLOYMENT_CONTRACT_AND_FIX_BEFORE_MERGE' },
   { match: /release tests failed/, code: 'RELEASE_TESTS_FAILED', next: 'RUN_RELEASE_SELF_TESTS_AND_FIX' },
   { match: /COMMUNITY_VERSION_NOT_YET_ELIGIBLE/, code: 'COMMUNITY_VERSION_NOT_YET_ELIGIBLE', next: 'RECORD_MAINTAINER_DOWNSTREAM_APPROVAL_OR_WAIT_FOR_NEXT_COMMERCIAL_VERSION' },
   { match: /CAPABILITY_MANIFEST_MISSING/, code: 'CAPABILITY_MANIFEST_MISSING', next: 'CREATE_RELEASE_CAPABILITY_MANIFEST' },
@@ -85,10 +85,11 @@ export function nextActionFor(findings) {
 function recordSuiteResults(result, checks, findings) {
   checks.extension = result.extension.ok;
   checks.worker = result.worker.ok;
-  checks.deploymentContract = result.deploymentContract?.ok ?? true;
+  checks.deploymentContract = result.deploymentContract?.ok === true;
   if (!result.extension.ok) findings.push('extension suite failed');
   if (!result.worker.ok) findings.push('worker suite failed');
-  if (result.deploymentContract && !result.deploymentContract.ok) findings.push('deployment contract failed');
+  if (!result.deploymentContract) findings.push('deployment contract result missing');
+  else if (!result.deploymentContract.ok) findings.push('deployment contract failed');
 }
 
 function shouldRunFastSuites(changedFiles, scopes) {

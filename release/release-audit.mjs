@@ -229,7 +229,8 @@ export async function releaseAudit({ repoRoot = ROOT, recordsDir = RECORDS, incl
     gates.suites = await suites(repoRoot);
     if (!gates.suites.extension.ok) findings.push('extension suite failed');
     if (!gates.suites.worker.ok) findings.push('worker suite failed');
-    if (gates.suites.deploymentContract && !gates.suites.deploymentContract.ok) findings.push('deployment contract failed');
+    if (!gates.suites.deploymentContract) findings.push('deployment contract result missing');
+    else if (!gates.suites.deploymentContract.ok) findings.push('deployment contract failed');
   }
 
   const rehearsals = gates.rehearsals || {};
