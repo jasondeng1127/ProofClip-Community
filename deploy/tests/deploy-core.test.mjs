@@ -19,6 +19,7 @@ const templatePath = join(repoRoot, 'deploy', 'wrangler.template.jsonc');
 const stableIdentity = await readStableExtensionIdentity(manifestPath);
 const stablePublicKey = JSON.parse(await readFile(manifestPath, 'utf8')).key;
 const stableExtensionOrigin = `chrome-extension://${stableIdentity.extensionId}`;
+const boundaryPath = join(repoRoot, 'release', 'edition-boundary.json');
 const CANDIDATE_SOURCE_COMMIT = 'a'.repeat(40);
 const execFileAsync = promisify(execFile);
 
@@ -73,6 +74,15 @@ test('direct CLI missing-env invocation fails safely before network access', asy
   assert.doesNotMatch(result.stdout, /Error| at |Cloudflare|https:\/\/api\.cloudflare\.com|cf-api-token|notion-client-secret|TOKEN_VAULT_KEY/i);
 });
 
+test('Community boundary permits the stable public key while retaining identity protections', async () => {
+  const boundary = JSON.parse(await readFile(boundaryPath, 'utf8'));
+  assert.equal(stablePublicKey.startsWith('MIIBIjANBgkqhki'), true);
+  assert.equal(boundary.forbiddenTokens.includes('MIIBIjANBgkqhki'), false);
+  for (const protectedToken of ['jasondeng1127', 'workers.dev', 'gmail.com', 'qq.com', 'subscription', 'license']) {
+    assert.equal(boundary.forbiddenTokens.includes(protectedToken), true, protectedToken);
+  }
+});
+
 async function listCandidateFiles(root, current = root, files = []) {
   for (const entry of await readdir(current, { withFileTypes: true })) {
     const path = join(current, entry.name);
@@ -82,13 +92,10 @@ async function listCandidateFiles(root, current = root, files = []) {
   return files;
 }
 
-async function refreshCandidateProvenance(root, sourceCommit = CANDIDATE_SOURCE_COMMIT, statePath = null) {
-  const stateRelativePath = statePath
-    ? relative(root, statePath).replaceAll('\\', '/')
-    : 'deploy/.state/deployment-state.json';
+async function refreshCandidateProvenance(root, sourceCommit = CANDIDATE_SOURCE_COMMIT) {
   const files = [];
   for (const file of await listCandidateFiles(root)) {
-    if (file.relativePath === 'PROVENANCE.json' || file.relativePath === stateRelativePath) continue;
+    if (file.relativePath === 'PROVENANCE.json') continue;
     const bytes = await readFile(file.path);
     files.push({ path: file.relativePath, sha256: createHash('sha256').update(bytes).digest('hex') });
   }
@@ -121,10 +128,11 @@ async function cleanupCandidate(fixture) {
   await rm(fixture.root, { recursive: true, force: true });
   await rm(fixture.envPath, { force: true });
   await rm(fixture.sidecarPath, { force: true });
+  await rm(fixture.stateRoot, { recursive: true, force: true });
 }
 
 function canonicalStatePath(root) {
-  return join(root, 'deploy', '.state', 'deployment-state.json');
+  return join(dirname(root), `.${basename(root)}-state`, 'deployment-state.json');
 }
 
 async function createCandidate() {
@@ -160,7 +168,7 @@ async function createCandidate() {
     '',
   ].join('\n'));
   const { sidecarPath } = await refreshCandidateProvenance(root);
-  return { root, envPath, sidecarPath };
+  return { root, envPath, sidecarPath, stateRoot: dirname(canonicalStatePath(root)) };
 }
 
 function createFsSpy(events) {
@@ -287,7 +295,10 @@ test('runDeployment performs the offline deployment contract in order and writes
   const events = [];
   const remote = configureRemote();
   const secretInputs = [];
-  const statePath = join(fixture.root, 'deploy', '.state', 'deployment-state.json');
+  const statePath = canonicalStatePath(fixture.root);
+  const candidateProvenanceBefore = await readFile(join(fixture.root, 'PROVENANCE.json'));
+  const candidateSourceBefore = await readFile(join(fixture.root, 'worker', 'src', 'worker.mjs'));
+  const generatedRoot = join(dirname(fixture.root), `.${basename(fixture.root)}-generated`);
   const fsImpl = createFsSpy(events);
 
   try {
@@ -295,7 +306,6 @@ test('runDeployment performs the offline deployment contract in order and writes
     const result = await runDeployment({
       repoRoot: fixture.root,
       envPath: fixture.envPath,
-      statePath,
       fetchImpl: createFetchMock({ events, remote }),
       spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
       fsImpl,
@@ -338,6 +348,11 @@ test('runDeployment performs the offline deployment contract in order and writes
     assert.doesNotMatch(stateText, /cf-api-token-sentinel|notion-client-secret-sentinel|TOKEN_VAULT_KEY/);
     const persistedState = JSON.parse(stateText);
     assert.equal(persistedState.candidateCommit, CANDIDATE_SOURCE_COMMIT);
+    assert.equal(statePath.startsWith(fixture.root), false);
+    assert.equal(result.extensionDir.startsWith(fixture.root), false);
+    assert.equal(result.extensionDir.startsWith(generatedRoot), true);
+    assert.deepEqual(await readFile(join(fixture.root, 'PROVENANCE.json')), candidateProvenanceBefore);
+    assert.deepEqual(await readFile(join(fixture.root, 'worker', 'src', 'worker.mjs')), candidateSourceBefore);
     assert.deepEqual(persistedState, {
       schemaVersion: 1,
       accountId: remote.accountId,
@@ -355,7 +370,6 @@ test('runDeployment performs the offline deployment contract in order and writes
     const second = await runDeployment({
       repoRoot: fixture.root,
       envPath: fixture.envPath,
-      statePath,
       fetchImpl: createFetchMock({ events, remote }),
       spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
       fsImpl,
@@ -577,14 +591,12 @@ test('candidate fixed Community public key is required before network or create 
   }
 });
 
-test('noncanonical in-candidate state paths cannot exempt candidate files', async () => {
+test('explicit in-candidate state paths fail closed before any candidate or network access', async () => {
   const fixture = await createCandidate();
   const events = [];
   const remote = configureRemote();
-  const statePath = join(fixture.root, 'worker', 'src', 'worker.mjs');
+  const statePath = join(fixture.root, 'deploy', '.state', 'deployment-state.json');
   try {
-    await writeFile(statePath, 'export const workerFixture = false;\n');
-    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
     const { runDeployment } = await import('../deploy-core.mjs');
     await assert.rejects(
       runDeployment({
@@ -691,7 +703,7 @@ test('candidate fingerprint preserves non-UTF-8 staged bytes', async () => {
   const statePath = canonicalStatePath(fixture.root);
   try {
     await writeFile(bytePath, Buffer.from([0xff, 0x00]));
-    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
+    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT);
     const { runDeployment } = await import('../deploy-core.mjs');
     await runDeployment({
       repoRoot: fixture.root,
@@ -702,7 +714,7 @@ test('candidate fingerprint preserves non-UTF-8 staged bytes', async () => {
       fsImpl: createFsSpy(events),
     });
     await writeFile(bytePath, Buffer.from([0xfe, 0x00]));
-    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
+    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT);
     await assert.rejects(
       runDeployment({
         repoRoot: fixture.root,
@@ -736,7 +748,7 @@ test('candidate fingerprint covers the complete extension and Worker trees', asy
       fsImpl: createFsSpy(events),
     });
     await writeFile(join(fixture.root, 'extension', 'src', 'new-runtime-file.mjs'), 'export const changed = true;\n');
-    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT, statePath);
+    await refreshCandidateProvenance(fixture.root, CANDIDATE_SOURCE_COMMIT);
     await assert.rejects(
       runDeployment({
         repoRoot: fixture.root,

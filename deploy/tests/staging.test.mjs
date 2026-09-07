@@ -117,11 +117,14 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
     await writeFile(join(candidateRoot, 'worker', 'scripts', 'bundle-worker.mjs'), fixtureBundleScript);
     await writeFile(join(candidateRoot, 'worker', 'dist', 'prebuilt.mjs'), secretSentinels[2]);
     await writeFile(join(candidateRoot, 'deploy', 'wrangler.template.jsonc'), template);
+    await writeFile(join(candidateRoot, 'PROVENANCE.json'), 'immutable candidate provenance\n');
     await writeFile(join(candidateRoot, 'deploy', 'deploy.env'), secretSentinels.join('\n'));
     await writeFile(join(candidateRoot, 'deploy', '.dev.vars'), secretSentinels.join('\n'));
     await writeFile(join(candidateRoot, '.wrangler', 'state.json'), secretSentinels[0]);
     await writeFile(join(candidateRoot, 'release', 'records', 'release.json'), secretSentinels[1]);
     await writeFile(join(candidateRoot, 'audit', 'evidence.txt'), secretSentinels[2]);
+    const candidateProvenanceBefore = await readFile(join(candidateRoot, 'PROVENANCE.json'));
+    const candidateSourceBefore = await readFile(join(candidateRoot, 'worker', 'src', 'index.mjs'));
 
     const result = await createStagingTree({
       candidateRoot,
@@ -138,6 +141,8 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
     assert.equal(result.workerDir, join(stagingRoot, 'worker'));
     assert.equal(result.configPath, join(stagingRoot, 'worker', 'wrangler.jsonc'));
     assert.equal(result.statePath, join(stagingRoot, 'deployment-state.json'));
+    assert.equal(stagingRoot.startsWith(candidateRoot), false);
+    assert.equal(result.statePath.startsWith(candidateRoot), false);
 
     assert.deepEqual(await listFiles(stagingRoot), [
       'deploy/wrangler.template.jsonc',
@@ -155,6 +160,8 @@ test('createStagingTree copies the allowlist, patches only the staged origin, bu
     assert.equal((await readStableExtensionIdentity(join(result.extensionDir, 'manifest.json'))).extensionId, extensionId);
     assert.equal(await readFile(join(result.extensionDir, 'community-config.mjs'), 'utf8'), "export const COMMUNITY_API_ORIGIN = 'https://worker.example';\n");
     assert.equal(await readFile(join(candidateRoot, 'extension', 'src', 'community-config.mjs'), 'utf8'), "export const COMMUNITY_API_ORIGIN = 'https://replace-me.invalid';\n");
+    assert.deepEqual(await readFile(join(candidateRoot, 'PROVENANCE.json')), candidateProvenanceBefore);
+    assert.deepEqual(await readFile(join(candidateRoot, 'worker', 'src', 'index.mjs')), candidateSourceBefore);
     assert.match(await readFile(join(result.workerDir, 'dist', 'worker.mjs'), 'utf8'), /staged bundle/);
     assert.match(await readFile(join(result.workerDir, 'dist', 'worker.mjs'), 'utf8'), /fixtureWorker/);
 

@@ -9,9 +9,12 @@ This leads to a simple product philosophy: capture with as little friction as po
 
 The tool should stay out of the way when it is not needed and be reliable when it is.
 
-## Latest release — v0.8.1
+## Release status — v0.8.0 latest released baseline
 
-**ProofClip Community 0.8.1 deployment path is now available.**
+**v0.8.0 remains the latest released ProofClip Community baseline.**
+
+The Community 0.8.1 deployment path is a pre-release/rehearsal candidate
+pending candidate export and the human release gate. It is not yet released.
 
 Community 0.8.1 adds a one-command, deployer-owned deployment path while
 keeping the existing 0.8.0 runtime baseline local-first and under the
@@ -32,7 +35,7 @@ deployer's control.
 
 Choose **Community** when you are comfortable operating your own Cloudflare Worker, D1 database, Notion OAuth integration, extension configuration, upgrades, and backups. It is the right path for researchers, labs, and technical teams that want a self-hosted, inspectable baseline and control of their own deployment.
 
-Do not choose Community expecting a Chrome Web Store install, a managed API, or automatic updates. This release is source-first: you load `extension/src` as an unpacked Chrome extension and operate the required services yourself.
+Do not choose Community expecting a Chrome Web Store install, a managed API, or automatic updates. The Community path is source-first: you load `extension/src` as an unpacked Chrome extension and operate the required services yourself.
 
 If you prefer a managed, ready-to-use experience with no infrastructure deployment, note that the Commercial edition is not currently available.
 
@@ -69,7 +72,7 @@ The Commercial edition is not currently available. When released, its intended p
 
 ## First successful Community capture
 
-After the technical deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
+After a human-approved 0.8.1 candidate deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
 
 1. [Run the Community 0.8.1 deployment path](docs/community-0.8.1-deployment.md), then load the generated extension directory.
 2. Connect the deployer's Notion integration, choose a Data Source, and map its required **Title** and **URL** properties.
@@ -80,6 +83,6 @@ The full, source-only loading path is in the [deployment guide](deploy/README.md
 
 ## Deploy your own Community instance
 
-ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. The 0.8.1 deployment path derives the browser identity and prints the generated extension directory and HTTPS callback details needed for the two manual handoff actions. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
+ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. The 0.8.1 pre-release deployment path derives the browser identity and prints the generated extension directory and HTTPS callback details needed for the two manual handoff actions. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
 
 Read [the one-command deployment guide](docs/community-0.8.1-deployment.md), [the deployment reference](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), and [Notion OAuth guide](docs/self-hosted-notion-oauth.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.

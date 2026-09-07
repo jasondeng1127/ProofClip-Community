@@ -59,11 +59,14 @@ deployer-owned backend should answer its privacy endpoint, and the extension
 should allow the deployer to connect the matching Notion integration, choose a
 Data Source, and save its field mapping.
 
-Verify one explicit capture in each useful mode before treating the deployment
-as usable: Selection (`Alt+1`), Image area (`Alt+2`), and Full page (`Alt+3`).
-Confirm that the intended Notion record is created, the source URL and capture
-time are present, delivery reports `SENT`, and the Outbox is empty after a
-successful retryable flow.
+For the bounded release gate, complete exactly one stable real capture.
+Selection (`Alt+1`) is recommended because it is the narrowest and easiest
+path to reproduce. Confirm that the intended Notion record is created, the
+source URL and capture time are present, delivery reports `SENT`, and the
+Outbox is empty after a successful retryable flow.
+
+Image area (`Alt+2`) and Full page (`Alt+3`) are optional follow-up coverage;
+they are not part of the one-capture release gate.
 
 ## Safety and recovery
 

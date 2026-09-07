@@ -20,7 +20,6 @@ const WORKER_NAME = 'proofclip-community';
 const D1_NAME = 'proofclip-community';
 const VERSION = '0.8.1';
 const MARKER = 'community-0.8.1';
-const CANONICAL_STATE_PATH = 'deploy/.state/deployment-state.json';
 const STABLE_EXTENSION_ID = 'ecpbgjlelajodnnichnflkcjkhojfekl';
 const STABLE_MANIFEST_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoE6clBamwq6eJy+8TWYYbrDkUwCOB8b0X3sN7y67BY/qfHsNEgSNgLRsdE7EK+kaQRI1hr0cCRizkmDypEpEuL3YqNsgXI2nZMJjO9uRKirPLhi78vWybVc1EDVhl6gGqftg6rbWPHvlhx2SCMoUknpZ7q+d5eM0TPqF6F3SEFURA7SHyKTuSbTURrQbGfqkVwNukH5vWyojDKQW5Sk3r5ixI//5nxQOC+d5+rkutrd0hkZFEEus+Ty54Y/7u1CrVT7zjLH0Qw8xZ7ajnwHaZe2RFpVZMCPn+9y4EZvieXAmN/j048HPCEg0HFcTFTIfrGLRHGASorE8nPWcFb/AkQIDAQAB';
 const REQUIRED_FILES = [
@@ -249,18 +248,9 @@ function sha256Bytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function isDeploymentStateFile(relativePath) {
-  const normalized = normalizeRelative(relativePath);
-  return normalized === CANONICAL_STATE_PATH;
-}
-
-async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
+async function validateCandidateIntegrity({ candidate, fsImpl }) {
   try {
     const root = candidate.root;
-    const stateRelativePath = pathWithin(root, statePath) ? normalizeRelative(relative(root, statePath)) : null;
-    if (stateRelativePath && stateRelativePath !== CANONICAL_STATE_PATH) {
-      fail('DEPLOYMENT_STATE_INVALID', 'The deployment state path must use the canonical candidate-relative location.');
-    }
     const provenance = JSON.parse(textValue(await fsImpl.readFile(join(root, 'PROVENANCE.json'), 'utf8')));
     if (
       provenance?.schemaVersion !== 1
@@ -275,8 +265,7 @@ async function validateCandidateIntegrity({ candidate, statePath, fsImpl }) {
 
     const files = [];
     for (const file of await walkFiles(fsImpl, root)) {
-      // Deployment state is generated after health succeeds and is not candidate content.
-      if (file.relativePath === 'PROVENANCE.json' || isDeploymentStateFile(file.relativePath)) continue;
+      if (file.relativePath === 'PROVENANCE.json') continue;
       const bytes = await fsImpl.readFile(file.path);
       files.push({ path: file.relativePath, sha256: sha256Bytes(bytes) });
     }
@@ -473,6 +462,11 @@ function stagingRootFor(repoRoot) {
   return join(dirname(root), `.${basename(root)}-generated`);
 }
 
+function statePathFor(repoRoot) {
+  const root = resolve(repoRoot);
+  return join(dirname(root), `.${basename(root)}-state`, 'deployment-state.json');
+}
+
 function generateVaultKey() {
   try {
     const encoded = randomBytes(32).toString('base64');
@@ -489,10 +483,13 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
   fsImpl = { ...defaultFs, ...fsImpl };
   const root = resolve(requiredText('repoRoot', repoRoot));
   const envFile = resolve(envPath || join(root, 'deploy', 'deploy.env'));
-  const finalStatePath = resolve(statePath || join(root, 'deploy', '.state', 'deployment-state.json'));
+  const finalStatePath = resolve(statePath || statePathFor(root));
+  if (pathWithin(root, finalStatePath)) {
+    fail('DEPLOYMENT_STATE_INVALID', 'Deployment state must be stored outside the candidate root.');
+  }
 
   const candidate = await validateCandidate({ repoRoot: root, envPath: envFile, fsImpl });
-  await validateCandidateIntegrity({ candidate, statePath: finalStatePath, fsImpl });
+  await validateCandidateIntegrity({ candidate, fsImpl });
   const env = await loadEnvironment({ repoRoot: root, envPath: envFile, fsImpl });
   registerRedactionSecret(env.cfApiToken);
 
@@ -660,8 +657,7 @@ async function runDirectCli(args) {
   try {
     const repoRoot = resolve(dirname(MODULE_PATH), '..');
     const envPath = resolve(repoRoot, parseCliArgs(args));
-    const statePath = join(repoRoot, 'deploy', '.state', 'deployment-state.json');
-    const result = await runDeployment({ repoRoot, envPath, statePath });
+    const result = await runDeployment({ repoRoot, envPath });
     process.stdout.write(`${formatFinalSummary(result)}\n`);
     return 0;
   } catch (error) {
