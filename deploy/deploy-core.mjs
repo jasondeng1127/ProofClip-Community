@@ -462,6 +462,11 @@ function stagingRootFor(repoRoot) {
   return join(dirname(root), `.${basename(root)}-generated`);
 }
 
+function wranglerPathFor(repoRoot) {
+  const root = resolve(repoRoot);
+  return join(dirname(root), `.${basename(root)}-deploy-runtime`, 'node_modules', '.bin', process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler');
+}
+
 function statePathFor(repoRoot) {
   const root = resolve(repoRoot);
   return join(dirname(root), `.${basename(root)}-state`, 'deployment-state.json');
@@ -504,7 +509,7 @@ export async function runDeployment({ repoRoot, envPath, statePath, fetchImpl = 
   const callbackUrl = buildNotionRedirectUri(workerOrigin);
   const state = await readState(fsImpl, finalStatePath);
 
-  const wranglerBinary = join(root, 'deploy', 'node_modules', '.bin', process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler');
+  const wranglerBinary = wranglerPathFor(root);
   const provisionalRunner = createWranglerRunner({
     binaryPath: wranglerBinary,
     cwd: root,

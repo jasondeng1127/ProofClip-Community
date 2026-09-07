@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { execFile, spawnSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
@@ -69,6 +70,32 @@ async function createExecutionSentinels(root) {
   return { bin, marker };
 }
 
+async function createSetupSentinels(root) {
+  const bin = resolve(root, 'fake-bin');
+  const npmMarker = resolve(root, 'npm.args');
+  const nodeMarker = resolve(root, 'node.args');
+  await mkdir(bin, { recursive: true });
+  await writeFile(resolve(bin, 'node.cmd'), `@echo off\r\n> "${nodeMarker}" echo %*\r\nexit /b 97\r\n`, 'utf8');
+  await writeFile(resolve(bin, 'npm.cmd'), `@echo off\r\n> "${npmMarker}" echo %*\r\nexit /b 0\r\n`, 'utf8');
+  return { bin, npmMarker, nodeMarker };
+}
+
+async function snapshotTree(root, current = root, result = []) {
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const path = join(current, entry.name);
+    if (entry.isDirectory()) {
+      await snapshotTree(root, path, result);
+    } else if (entry.isFile()) {
+      const bytes = await readFile(path);
+      result.push({
+        path: relative(root, path).replaceAll('\\', '/'),
+        sha256: createHash('sha256').update(bytes).digest('hex')
+      });
+    }
+  }
+  return result.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 function withFakePath(bin) {
   const currentPath = process.env.PATH || '';
   return { ...process.env, PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${currentPath}` };
@@ -86,8 +113,11 @@ test('PowerShell entrypoint delegates from the candidate root', () => {
   assert.match(source, /\$PSScriptRoot/);
   assert.match(source, /deploy-core\.mjs/);
   assert.match(source, /deploy\.env/);
-  assert.match(source, /npm\s+ci\s+--prefix\s+deploy/);
+  assert.match(source, /npm\s+ci\s+--prefix\s+\$runtimeRoot/);
+  assert.match(source, /--cache\s+\$npmCachePath/);
   assert.match(source, /node_modules\/\.bin\/\$wranglerExecutable/);
+  assert.match(source, /runtimeRoot/);
+  assert.doesNotMatch(source, /deploy\/node_modules/);
   assert.match(source, /\$IsWindows/);
   assert.match(source, /wrangler\.cmd/);
   assert.match(source, /wrangler/);
@@ -129,10 +159,13 @@ test('POSIX entrypoint delegates from the candidate root', () => {
   assert.match(source, /SCRIPT_DIR/);
   assert.match(source, /deploy-core\.mjs/);
   assert.match(source, /deploy\.env/);
-  assert.match(source, /npm\s+ci\s+--prefix\s+deploy/);
+  assert.match(source, /npm\s+ci\s+--prefix\s+"\$RUNTIME_ROOT"/);
+  assert.match(source, /--cache\s+"\$NPM_CACHE_PATH"/);
   assert.match(source, /command\s+-v\s+node/);
   assert.match(source, /command\s+-v\s+npm/);
+  assert.match(source, /RUNTIME_ROOT/);
   assert.match(source, /node_modules\/\.bin\/wrangler/);
+  assert.doesNotMatch(source, /SCRIPT_DIR\/node_modules/);
   assert.match(source, /\[\s*!\s+-e\s+"\$WRANGLER_PATH"\s+\]/);
   assert.ok(source.includes('"$#" -ne 0'), 'POSIX wrapper must compare the argument count');
   assert.match(source, /does not accept positional arguments/);
@@ -140,13 +173,50 @@ test('POSIX entrypoint delegates from the candidate root', () => {
   const argumentGuard = source.indexOf('"$#" -ne 0');
   assert.ok(argumentGuard >= 0, 'POSIX wrapper must guard positional arguments');
   assert.ok(argumentGuard < source.indexOf('command -v node'), 'POSIX argument guard must run before command checks');
-  assert.ok(argumentGuard < source.indexOf('npm ci --prefix deploy'), 'POSIX argument guard must run before install');
+  assert.ok(argumentGuard < source.indexOf('npm ci --prefix'), 'POSIX argument guard must run before install');
   assert.ok(argumentGuard < source.indexOf('node deploy/deploy-core.mjs'), 'POSIX argument guard must run before execution');
   assert.doesNotMatch(source, /printf[\s\S]*\$[@*]/);
   assert.match(source, /exit \$\?/);
   assert.doesNotMatch(source, /NOTION_CLIENT_SECRET=/);
   assert.doesNotMatch(source, /TOKEN_VAULT_KEY=/);
   assert.doesNotMatch(source, /--extension-id/);
+});
+
+test('PowerShell wrapper installs outside a candidate and preserves its provenance tree', { skip: !powerShellCommand }, async () => {
+  const fixtureRoot = await mkdtemp(resolve(tmpdir(), 'proofclip-wrapper-immutability-'));
+  const candidateRoot = join(fixtureRoot, 'candidate');
+  const deployRoot = join(candidateRoot, 'deploy');
+  try {
+    await mkdir(deployRoot, { recursive: true });
+    await mkdir(join(candidateRoot, 'extension', 'src'), { recursive: true });
+    await cp(resolve(repoRoot, 'deploy', 'deploy.ps1'), join(deployRoot, 'deploy.ps1'));
+    await cp(resolve(repoRoot, 'deploy', 'deploy-core.mjs'), join(deployRoot, 'deploy-core.mjs'));
+    await cp(resolve(repoRoot, 'deploy', 'package.json'), join(deployRoot, 'package.json'));
+    await cp(resolve(repoRoot, 'deploy', 'package-lock.json'), join(deployRoot, 'package-lock.json'));
+    await writeFile(join(candidateRoot, 'PROVENANCE.json'), 'immutable provenance sentinel\n');
+    await writeFile(join(candidateRoot, 'extension', 'src', 'source.mjs'), 'immutable source sentinel\n');
+    const before = await snapshotTree(candidateRoot);
+    const { bin, npmMarker, nodeMarker } = await createSetupSentinels(fixtureRoot);
+    const result = await runProcess(powerShellCommand, [
+      '-NoLogo',
+      '-NoProfile',
+      '-File',
+      join(deployRoot, 'deploy.ps1')
+    ], { cwd: candidateRoot, env: withFakePath(bin) });
+
+    assert.equal(result.code, 97);
+    const runtimeRoot = resolve(dirname(candidateRoot), `.${basename(candidateRoot)}-deploy-runtime`);
+    const npmArgs = await readFile(npmMarker, 'utf8');
+    assert.match(npmArgs, /ci/);
+    assert.ok(npmArgs.includes(`--prefix ${runtimeRoot}`), npmArgs);
+    assert.match(npmArgs, /--cache/);
+    assert.match(await readFile(nodeMarker, 'utf8'), /deploy[\\/]deploy-core\.mjs/);
+    assert.equal(existsSync(join(candidateRoot, 'deploy', 'node_modules')), false);
+    assert.deepEqual(await snapshotTree(candidateRoot), before);
+    assert.equal(existsSync(runtimeRoot), true);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('POSIX wrapper rejects a positional argument before node, npm, install, or core execution', {

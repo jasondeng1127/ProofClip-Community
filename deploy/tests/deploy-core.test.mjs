@@ -189,8 +189,9 @@ function createFsSpy(events) {
   return fs;
 }
 
-function createWranglerSpawn({ events, remote, secretInputs }) {
+function createWranglerSpawn({ events, remote, secretInputs, binaryPaths = [] }) {
   return (binaryPath, args, options) => {
+    binaryPaths.push(binaryPath);
     const child = new EventEmitter();
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
@@ -295,6 +296,7 @@ test('runDeployment performs the offline deployment contract in order and writes
   const events = [];
   const remote = configureRemote();
   const secretInputs = [];
+  const binaryPaths = [];
   const statePath = canonicalStatePath(fixture.root);
   const candidateProvenanceBefore = await readFile(join(fixture.root, 'PROVENANCE.json'));
   const candidateSourceBefore = await readFile(join(fixture.root, 'worker', 'src', 'worker.mjs'));
@@ -307,7 +309,7 @@ test('runDeployment performs the offline deployment contract in order and writes
       repoRoot: fixture.root,
       envPath: fixture.envPath,
       fetchImpl: createFetchMock({ events, remote }),
-      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs, binaryPaths }),
       fsImpl,
       now: () => 1725600000000,
     });
@@ -349,6 +351,9 @@ test('runDeployment performs the offline deployment contract in order and writes
     const persistedState = JSON.parse(stateText);
     assert.equal(persistedState.candidateCommit, CANDIDATE_SOURCE_COMMIT);
     assert.equal(statePath.startsWith(fixture.root), false);
+    const expectedWranglerPath = join(dirname(fixture.root), `.${basename(fixture.root)}-deploy-runtime`, 'node_modules', '.bin', process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler');
+    assert.ok(binaryPaths.length > 0);
+    assert.ok(binaryPaths.every((path) => path === expectedWranglerPath), binaryPaths.join('\n'));
     assert.equal(result.extensionDir.startsWith(fixture.root), false);
     assert.equal(result.extensionDir.startsWith(generatedRoot), true);
     assert.deepEqual(await readFile(join(fixture.root, 'PROVENANCE.json')), candidateProvenanceBefore);
@@ -371,7 +376,7 @@ test('runDeployment performs the offline deployment contract in order and writes
       repoRoot: fixture.root,
       envPath: fixture.envPath,
       fetchImpl: createFetchMock({ events, remote }),
-      spawnImpl: createWranglerSpawn({ events, remote, secretInputs }),
+      spawnImpl: createWranglerSpawn({ events, remote, secretInputs, binaryPaths }),
       fsImpl,
       now: () => 1725600001000,
     });
