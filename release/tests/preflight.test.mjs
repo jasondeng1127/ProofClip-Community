@@ -71,6 +71,29 @@ test('FLOW-10: a failing deployment contract fails STANDARD preflight closed', a
   await rm(root, { recursive: true, force: true });
 });
 
+test('FLOW-12: a release-only change runs and fails closed on the deployment contract', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: failingDeploymentContract, changedFiles: ['release/run-suites.mjs'] });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.suitesRan, true);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-13: the Community 0.8.1 gate document runs and fails closed on the deployment contract', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({
+    mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: failingDeploymentContract,
+    changedFiles: ['docs/acceptance/community-0.8.1-cloudflare-deploy-gate.md']
+  });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.suitesRan, true);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
+  await rm(root, { recursive: true, force: true });
+});
+
 test('FLOW-03: an unknown workspace fails closed', async () => {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-nows-'));
   const report = await runPreflight({ mode: 'standard', repoRoot: root, gitImpl: goodGit, suitesImpl: goodSuites });
@@ -155,6 +178,17 @@ test('FLOW-08: a README-only change runs FAST without heavy product suites', asy
   const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: spySuites, changedFiles: ['README.md'] });
   assert.equal(report.ok, true, JSON.stringify(report.findings));
   assert.equal(suitesCalled, 0, 'product suites must not run for a README-only change');
+  assert.equal(report.checks.suitesRan, false);
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-14: an unrelated documentation change keeps FAST product-suite skip semantics', async () => {
+  const root = await communityFixture();
+  let suitesCalled = 0;
+  const spySuites = () => { suitesCalled += 1; return failingDeploymentContract(); };
+  const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: spySuites, changedFiles: ['docs/engineering-notes.md'] });
+  assert.equal(report.ok, true, JSON.stringify(report.findings));
+  assert.equal(suitesCalled, 0, 'product suites must remain skipped for unrelated documentation changes');
   assert.equal(report.checks.suitesRan, false);
   await rm(root, { recursive: true, force: true });
 });

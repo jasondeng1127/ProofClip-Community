@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -77,6 +77,39 @@ test('CI reports candidate absence without substituting tests or contacting a ne
     assert.equal(result.ok, false);
     assert.deepEqual(result.findings, ['CANDIDATE_ABSENT / VERIFIER_NOT_RUN']);
     assert.equal(result.verifier, 'not-run');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CI builds the offline candidate verifier command from temporary provenance without network access', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'proofclip-ci-candidate-'));
+  const candidateDir = join(root, 'release/out/community-0.8.1');
+  const sourceCommit = '0123456789abcdef0123456789abcdef01234567';
+  const contentFingerprint = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+  try {
+    await mkdir(candidateDir, { recursive: true });
+    await writeFile(join(candidateDir, 'PROVENANCE.json'), JSON.stringify({ sourceCommit, contentFingerprint }));
+
+    const resolved = resolveOfflineCommunity081Verifier(root);
+    assert.equal(resolved.present, true);
+    assert.deepEqual(resolved.args, [
+      join(root, 'release/verify-community-0.8.1.mjs'),
+      `--candidate=${candidateDir}`,
+      `--commit=${sourceCommit}`,
+      `--fingerprint=${contentFingerprint}`,
+    ]);
+
+    let invoked;
+    const result = runCommunity081OfflineChecks({
+      root,
+      runImpl: (...args) => {
+        invoked = args;
+        return 'offline verifier stub';
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(invoked, [process.execPath, resolved.args, root]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

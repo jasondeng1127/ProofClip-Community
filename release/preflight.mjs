@@ -21,6 +21,7 @@ const CAPABILITY_MANIFEST = join(HERE, 'capability-manifest.json');
 const REQUIRED_MIGRATION = 'worker/migrations/20260813_privacy_nonretention.sql';
 const REQUIRED_TOOLING = ['release/export-community.mjs', 'release/release-audit.mjs'];
 const REQUIRED_CI = ['.github/workflows/ci.yml', '.github/workflows/release-readiness.yml'];
+const COMMUNITY_081_GATE_DOC = 'docs/acceptance/community-0.8.1-cloudflare-deploy-gate.md';
 
 // WORKSPACE identity must be unambiguous; unknown means FAIL CLOSED.
 export function detectWorkspace(repoRoot) {
@@ -90,6 +91,12 @@ function recordSuiteResults(result, checks, findings) {
   if (result.deploymentContract && !result.deploymentContract.ok) findings.push('deployment contract failed');
 }
 
+function shouldRunFastSuites(changedFiles, scopes) {
+  if (!changedFiles) return true;
+  if (scopes.has('extension') || scopes.has('worker') || scopes.has('other')) return true;
+  return changedFiles.some((file) => file.startsWith('release/') || file === COMMUNITY_081_GATE_DOC);
+}
+
 export async function runPreflight({ mode = 'standard', repoRoot = ROOT, gitImpl = defaultGit, suitesImpl = null, scanImpl = null, capImpl = null, auditImpl = null, changedFiles = null, releaseTestsImpl = null } = {}) {
   const checks = {};
   const findings = [];
@@ -128,7 +135,7 @@ export async function runPreflight({ mode = 'standard', repoRoot = ROOT, gitImpl
     const scopes = changedFiles ? scopeOfChangedFiles(changedFiles) : null;
     const suites = suitesImpl || runSuites;
     let ranSuites = false;
-    if (scopes && !scopes.has('extension') && !scopes.has('worker') && !scopes.has('other')) {
+    if (scopes && !shouldRunFastSuites(changedFiles, scopes)) {
       checks.notes = 'change-aware: product test suites skipped (no product scope changed)';
     } else {
       const result = suites(repoRoot);
