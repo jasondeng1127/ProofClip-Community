@@ -227,7 +227,7 @@ async function removeOwnedMarker(reservation) {
 
 async function quarantineOwnedReservation(reservation, beforeCleanup) {
   if (!await markerIsOwned(reservation)) return false;
-  if (beforeCleanup) await beforeCleanup({ candidateDir: reservation.candidateDir, reservation });
+  if (beforeCleanup) await beforeCleanup({ phase: 'candidate', candidateDir: reservation.candidateDir, reservation });
 
   const isolated = quarantineName(reservation.candidateDir);
   try {
@@ -242,12 +242,13 @@ async function quarantineOwnedReservation(reservation, beforeCleanup) {
   }
 }
 
-async function quarantineOwnedFile(path, identity) {
+async function quarantineOwnedFile(path, identity, beforeCleanup) {
   if (!identity) return false;
   const isolated = quarantineName(path);
   try {
     const current = await lstat(path);
     if (!sameFileIdentity(current, identity) || !current.isFile()) return false;
+    if (beforeCleanup) await beforeCleanup({ phase: 'sidecar', path });
     await rename(path, isolated);
     const isolatedIdentity = await lstat(isolated);
     if (!sameFileIdentity(isolatedIdentity, identity) || !isolatedIdentity.isFile()) return false;
@@ -356,7 +357,7 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     return { sourceCommit, files: payload.files, contentFingerprint: payload.contentFingerprint, candidateDir };
   } catch (error) {
     if (reservation) await quarantineOwnedReservation(reservation, beforeCleanup);
-    if (sidecarCreated) await quarantineOwnedFile(sidecar, sidecarIdentity);
+    if (sidecarCreated) await quarantineOwnedFile(sidecar, sidecarIdentity, beforeCleanup);
     throw error;
   }
 }

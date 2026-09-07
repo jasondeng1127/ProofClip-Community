@@ -314,6 +314,39 @@ test('preserves a replacement inserted between ownership check and cleanup', asy
   }
 });
 
+test('preserves a sidecar replacement inserted between ownership check and quarantine', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  const sidecar = `${outDir}.sha256`;
+  const replacementBytes = 'replacement sidecar survives quarantine\n';
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({
+        sourceRoot: root,
+        outDir,
+        gitImpl: gitImpl(commit, trackedFiles),
+        verifyImpl: async () => ({ ok: false, findings: ['CANDIDATE_PROVENANCE_FAILED category=TEST path=README.md'] }),
+        beforeCleanup: async ({ phase, path }) => {
+          if (phase !== 'sidecar') return;
+          await rm(path, { force: true });
+          await writeFile(path, replacementBytes);
+        },
+      }),
+      /self-verification/i,
+    );
+    const preserved = [];
+    try {
+      if (await readFile(sidecar, 'utf8') === replacementBytes) preserved.push(sidecar);
+    } catch {}
+    for (const entry of (await readdir(root)).filter((name) => name.startsWith('candidate.sha256.quarantine-'))) {
+      if (await readFile(join(root, entry), 'utf8') === replacementBytes) preserved.push(join(root, entry));
+    }
+    assert.equal(preserved.length, 1, `replacement sidecar was not preserved: ${preserved.join(', ')}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('rejects a candidate basename containing whitespace before output creation', async () => {
   const { root, commit, trackedFiles } = await createFixture();
   const outDir = join(root, 'candidate with space');
