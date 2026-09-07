@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { detectWorkspace, scopeOfChangedFiles, nextActionFor, runPreflight, changedFilesFromStatus, formatSummary } from '../preflight.mjs';
+import { releaseAudit } from '../release-audit.mjs';
+const releaseRoot = fileURLToPath(new URL('../', import.meta.url));
 
 async function communityFixture() {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-preflight-'));
@@ -28,8 +31,9 @@ const goodGit = {
   statusPorcelain: async () => ''
 };
 
-const goodSuites = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 } });
-const failingWorker = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: false, pass: 0, fail: 3 } });
+const goodSuites = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 }, deploymentContract: { ok: true, pass: 1, fail: 0 } });
+const failingWorker = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: false, pass: 0, fail: 3 }, deploymentContract: { ok: true, pass: 1, fail: 0 } });
+const failingDeploymentContract = () => ({ extension: { ok: true, pass: 1, fail: 0 }, worker: { ok: true, pass: 1, fail: 0 }, deploymentContract: { ok: false, pass: 0, fail: 1 } });
 
 test('FLOW-01: a normal extension change passes FAST preflight', async () => {
   const root = await communityFixture();
@@ -46,6 +50,24 @@ test('FLOW-02: a failing Worker suite fails preflight with an actionable next ac
   assert.equal(report.ok, false);
   assert.equal(report.nextAction.code, 'WORKER_TESTS_FAILED');
   assert.equal(report.nextAction.next, 'RUN_WORKER_TESTS_AND_FIX_BEFORE_MERGE');
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-09: a failing deployment contract fails FAST preflight closed', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({ mode: 'fast', repoRoot: root, gitImpl: goodGit, suitesImpl: failingDeploymentContract, changedFiles: ['deploy/tests/complete-contract.test.mjs'] });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-10: a failing deployment contract fails STANDARD preflight closed', async () => {
+  const root = await communityFixture();
+  const report = await runPreflight({ mode: 'standard', repoRoot: root, gitImpl: goodGit, suitesImpl: failingDeploymentContract, scanImpl: async () => ({ ok: true, findings: [], fileCount: 0 }), capImpl: async () => ({ ok: true, findings: [], skipped: false, report: null }) });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.deploymentContract, false);
+  assert.equal(report.nextAction.code, 'DEPLOYMENT_CONTRACT_FAILED');
   await rm(root, { recursive: true, force: true });
 });
 
@@ -79,6 +101,24 @@ test('FLOW-05: correct main with green tests passes STANDARD preflight', async (
   });
   assert.equal(report.ok, true, JSON.stringify(report.findings));
   assert.equal(report.nextAction.next, 'SAFE_TO_MERGE_TO_MAIN');
+  await rm(root, { recursive: true, force: true });
+});
+
+test('FLOW-11: release audit include-tests fails when deployment contract fails', async () => {
+  const root = await communityFixture();
+  const result = await releaseAudit({
+    repoRoot: root,
+    recordsDir: join(root, 'release/records'),
+    boundaryFile: join(releaseRoot, 'edition-boundary.json'),
+    provenanceFile: join(releaseRoot, 'provenance/community-0.8.0.json'),
+    capabilityManifest: join(releaseRoot, 'capability-manifest.json'),
+    includeTests: true,
+    gitImpl: goodGit,
+    suitesImpl: failingDeploymentContract,
+  });
+  assert.equal(result.gates.suites.deploymentContract.ok, false);
+  assert.ok(result.findings.includes('deployment contract failed'));
+  assert.equal(result.ok, false);
   await rm(root, { recursive: true, force: true });
 });
 

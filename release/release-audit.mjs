@@ -80,7 +80,7 @@ async function sha256OfFile(file) {
   return createHash('sha256').update(await readFile(file)).digest('hex');
 }
 
-export async function releaseAudit({ repoRoot = ROOT, recordsDir = RECORDS, includeTests = false, provenanceFile = CANONICAL_PROVENANCE, gitImpl = defaultGit, boundaryFile = BOUNDARY, requireReleaseReady = false, capabilityManifest = DEFAULT_CAPABILITY_MANIFEST } = {}) {
+export async function releaseAudit({ repoRoot = ROOT, recordsDir = RECORDS, includeTests = false, provenanceFile = CANONICAL_PROVENANCE, gitImpl = defaultGit, boundaryFile = BOUNDARY, requireReleaseReady = false, capabilityManifest = DEFAULT_CAPABILITY_MANIFEST, suitesImpl = null } = {}) {
   const gates = {};
   const findings = [];
 
@@ -225,10 +225,11 @@ export async function releaseAudit({ repoRoot = ROOT, recordsDir = RECORDS, incl
 
   gates.suites = { ran: false };
   if (includeTests) {
-    const { runSuites } = await import('./run-suites.mjs');
-    gates.suites = await runSuites(repoRoot);
+    const suites = suitesImpl || (await import('./run-suites.mjs')).runSuites;
+    gates.suites = await suites(repoRoot);
     if (!gates.suites.extension.ok) findings.push('extension suite failed');
     if (!gates.suites.worker.ok) findings.push('worker suite failed');
+    if (gates.suites.deploymentContract && !gates.suites.deploymentContract.ok) findings.push('deployment contract failed');
   }
 
   const rehearsals = gates.rehearsals || {};

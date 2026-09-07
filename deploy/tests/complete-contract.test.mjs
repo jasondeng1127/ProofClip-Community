@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
+import { runCommunity081OfflineChecks, resolveOfflineCommunity081Verifier } from '../../release/ci-release-gates.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const acceptancePath = join(repoRoot, 'docs/acceptance/community-0.8.1-cloudflare-deploy-gate.md');
@@ -58,5 +61,23 @@ test('release wiring exposes the offline Community 0.8.1 deployment contract', (
   assert.match(runSuites, /complete-contract\.test\.mjs/);
   assert.match(ciGates, /verify-community-0\.8\.1\.mjs/);
   assert.match(ciGates, /complete-contract\.test\.mjs/);
+  assert.match(ciGates, /CANDIDATE_ABSENT/);
+  assert.match(ciGates, /VERIFIER_NOT_RUN/);
+  assert.doesNotMatch(ciGates, /community-0\.8\.1-(?:export|provenance)\.test\.mjs/);
   assert.doesNotMatch(ciGates, /api\.cloudflare\.com|notion\.so|fetch\s*\(/i);
+});
+
+test('CI reports candidate absence without substituting tests or contacting a network', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'proofclip-ci-no-candidate-'));
+  try {
+    const resolved = resolveOfflineCommunity081Verifier(root);
+    assert.equal(resolved.present, false);
+    assert.equal(resolved.finding, 'CANDIDATE_ABSENT / VERIFIER_NOT_RUN');
+    const result = runCommunity081OfflineChecks({ root });
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.findings, ['CANDIDATE_ABSENT / VERIFIER_NOT_RUN']);
+    assert.equal(result.verifier, 'not-run');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

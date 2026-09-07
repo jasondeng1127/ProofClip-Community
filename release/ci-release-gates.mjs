@@ -18,19 +18,31 @@ function run(cmd, args, cwd = ROOT) {
   catch { return null; }
 }
 
-function offlineCommunity081CandidateArgs() {
-  const candidateDir = join(ROOT, 'release/out/community-0.8.1');
+export function resolveOfflineCommunity081Verifier(root = ROOT) {
+  const candidateDir = join(root, 'release/out/community-0.8.1');
   const provenancePath = join(candidateDir, 'PROVENANCE.json');
-  if (!existsSync(candidateDir)) {
-    return ['--test', join(ROOT, 'release/tests/community-0.8.1-export.test.mjs'), join(ROOT, 'release/tests/community-0.8.1-provenance.test.mjs')];
-  }
+  if (!existsSync(candidateDir)) return { present: false, verifier: 'not-run', finding: 'CANDIDATE_ABSENT / VERIFIER_NOT_RUN', candidateDir };
+  if (!existsSync(provenancePath)) return { present: false, verifier: 'not-run', finding: 'CANDIDATE_PROVENANCE_MISSING / VERIFIER_NOT_RUN', candidateDir };
   const provenance = JSON.parse(readFileSync(provenancePath, 'utf8'));
-  return [
-    join(ROOT, 'release/verify-community-0.8.1.mjs'),
-    `--candidate=${candidateDir}`,
-    `--commit=${provenance.sourceCommit}`,
-    `--fingerprint=${provenance.contentFingerprint}`,
-  ];
+  return {
+    present: true,
+    verifier: 'pending',
+    candidateDir,
+    args: [
+      join(root, 'release/verify-community-0.8.1.mjs'),
+      `--candidate=${candidateDir}`,
+      `--commit=${provenance.sourceCommit}`,
+      `--fingerprint=${provenance.contentFingerprint}`,
+    ],
+  };
+}
+
+export function runCommunity081OfflineChecks({ root = ROOT, runImpl = run } = {}) {
+  const resolved = resolveOfflineCommunity081Verifier(root);
+  if (!resolved.present) return { ok: false, verifier: 'not-run', findings: [resolved.finding] };
+  const output = runImpl(process.execPath, resolved.args, root);
+  if (!output) return { ok: false, verifier: 'failed', findings: ['COMMUNITY_0_8_1_CANDIDATE_VERIFIER_FAILED: offline candidate verifier failed'] };
+  return { ok: true, verifier: 'pass', findings: [] };
 }
 
 async function main() {
@@ -43,8 +55,8 @@ async function main() {
 
   // Community 0.8.1 feature gates are offline only: candidate provenance and
   // the deployment contract never contact Cloudflare, Notion, or any remote API.
-  const candidateVerifier = run(process.execPath, offlineCommunity081CandidateArgs());
-  if (!candidateVerifier) findings.push('COMMUNITY_0_8_1_CANDIDATE_VERIFIER_FAILED: offline candidate verifier failed');
+  const candidateVerifier = runCommunity081OfflineChecks();
+  if (!candidateVerifier.ok) findings.push(...candidateVerifier.findings);
   else console.log('Community 0.8.1 candidate verifier: PASS (offline)');
   const deploymentContract = run(process.execPath, ['--test', join(ROOT, 'deploy/tests/complete-contract.test.mjs')]);
   if (!deploymentContract) findings.push('COMMUNITY_0_8_1_DEPLOYMENT_CONTRACT_FAILED: offline deployment contract failed');
@@ -92,4 +104,5 @@ async function main() {
   process.exit(0);
 }
 
-main();
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();

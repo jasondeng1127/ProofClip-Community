@@ -59,6 +59,7 @@ const NEXT_ACTION_MAP = [
   { match: /DEFAULT_BRANCH_SOURCE_MISMATCH/, code: 'DEFAULT_BRANCH_SOURCE_MISMATCH', next: 'INTEGRATE_ACCEPTED_RUNTIME_CHANGES_INTO_MAIN_BEFORE_RELEASE' },
   { match: /extension suite failed/, code: 'EXTENSION_TESTS_FAILED', next: 'RUN_EXTENSION_TESTS_AND_FIX_BEFORE_MERGE' },
   { match: /worker suite failed/, code: 'WORKER_TESTS_FAILED', next: 'RUN_WORKER_TESTS_AND_FIX_BEFORE_MERGE' },
+  { match: /deployment contract failed/, code: 'DEPLOYMENT_CONTRACT_FAILED', next: 'RUN_COMMUNITY_0_8_1_DEPLOYMENT_CONTRACT_AND_FIX_BEFORE_MERGE' },
   { match: /release tests failed/, code: 'RELEASE_TESTS_FAILED', next: 'RUN_RELEASE_SELF_TESTS_AND_FIX' },
   { match: /COMMUNITY_VERSION_NOT_YET_ELIGIBLE/, code: 'COMMUNITY_VERSION_NOT_YET_ELIGIBLE', next: 'RECORD_MAINTAINER_DOWNSTREAM_APPROVAL_OR_WAIT_FOR_NEXT_COMMERCIAL_VERSION' },
   { match: /CAPABILITY_MANIFEST_MISSING/, code: 'CAPABILITY_MANIFEST_MISSING', next: 'CREATE_RELEASE_CAPABILITY_MANIFEST' },
@@ -78,6 +79,15 @@ export function nextActionFor(findings) {
   const text = (findings || []).join('\n');
   const hit = NEXT_ACTION_MAP.find((entry) => entry.match.test(text));
   return hit || { code: 'UNKNOWN_FAILURE', next: 'INSPECT_PREFLIGHT_DETAILS' };
+}
+
+function recordSuiteResults(result, checks, findings) {
+  checks.extension = result.extension.ok;
+  checks.worker = result.worker.ok;
+  checks.deploymentContract = result.deploymentContract?.ok ?? true;
+  if (!result.extension.ok) findings.push('extension suite failed');
+  if (!result.worker.ok) findings.push('worker suite failed');
+  if (result.deploymentContract && !result.deploymentContract.ok) findings.push('deployment contract failed');
 }
 
 export async function runPreflight({ mode = 'standard', repoRoot = ROOT, gitImpl = defaultGit, suitesImpl = null, scanImpl = null, capImpl = null, auditImpl = null, changedFiles = null, releaseTestsImpl = null } = {}) {
@@ -123,10 +133,7 @@ export async function runPreflight({ mode = 'standard', repoRoot = ROOT, gitImpl
     } else {
       const result = suites(repoRoot);
       ranSuites = true;
-      checks.extension = result.extension.ok;
-      checks.worker = result.worker.ok;
-      if (!result.extension.ok) findings.push('extension suite failed');
-      if (!result.worker.ok) findings.push('worker suite failed');
+      recordSuiteResults(result, checks, findings);
     }
     checks.suitesRan = ranSuites;
     if (scopes && scopes.has('docs')) {
@@ -142,10 +149,7 @@ export async function runPreflight({ mode = 'standard', repoRoot = ROOT, gitImpl
   } else if (mode === 'standard') {
     const suites = suitesImpl || runSuites;
     const result = suites(repoRoot);
-    checks.extension = result.extension.ok;
-    checks.worker = result.worker.ok;
-    if (!result.extension.ok) findings.push('extension suite failed');
-    if (!result.worker.ok) findings.push('worker suite failed');
+    recordSuiteResults(result, checks, findings);
     const scan = await (scanImpl || (({ repoRoot: r, boundaryFile: b }) => verifyGeneratedTree({ treeDir: r, boundaryFile: b, requireProvenance: false })))({ repoRoot, boundaryFile: BOUNDARY });
     checks.repoScan = scan.ok;
     if (!scan.ok) findings.push('repo scan failed: ' + scan.findings.length + ' findings');
