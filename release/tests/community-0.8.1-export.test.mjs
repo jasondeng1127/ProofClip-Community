@@ -288,6 +288,47 @@ test('does not remove a replacement candidate directory during failed cleanup', 
   }
 });
 
+test('preserves a replacement inserted between ownership check and cleanup', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate');
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({
+        sourceRoot: root,
+        outDir,
+        gitImpl: gitImpl(commit, trackedFiles),
+        verifyImpl: async () => ({ ok: false, findings: ['CANDIDATE_PROVENANCE_FAILED category=TEST path=README.md'] }),
+        beforeCleanup: async ({ candidateDir }) => {
+          await rm(candidateDir, { recursive: true, force: true });
+          await mkdir(candidateDir, { recursive: false });
+          await writeFile(join(candidateDir, 'replacement-window.txt'), 'replacement survives quarantine\n');
+        },
+      }),
+      /self-verification/i,
+    );
+    const quarantine = (await readdir(root)).find((entry) => entry.startsWith('candidate.quarantine-'));
+    assert.ok(quarantine, 'replacement should be isolated in quarantine');
+    assert.equal(await readFile(join(root, quarantine, 'replacement-window.txt'), 'utf8'), 'replacement survives quarantine\n');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects a candidate basename containing whitespace before output creation', async () => {
+  const { root, commit, trackedFiles } = await createFixture();
+  const outDir = join(root, 'candidate with space');
+  try {
+    await assert.rejects(
+      createCommunity081Candidate({ sourceRoot: root, outDir, gitImpl: gitImpl(commit, trackedFiles) }),
+      /basename|whitespace/i,
+    );
+    await assert.rejects(access(outDir));
+    await assert.rejects(access(`${outDir}.sha256`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('rejects a pre-existing sidecar without changing or removing it', async () => {
   const { root, commit, trackedFiles } = await createFixture();
   const outDir = join(root, 'candidate');

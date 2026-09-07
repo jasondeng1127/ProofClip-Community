@@ -128,6 +128,7 @@ async function readPayload(candidateDir) {
 export async function verifyCommunity081Candidate({ candidateDir, expectedCommit, expectedFingerprint }) {
   const root = resolve(candidateDir);
   const findings = [];
+  if (/\s/.test(basename(root))) findings.push(finding('CANDIDATE_BASENAME_INVALID', 'candidate'));
   let provenance;
   let provenanceText;
   try {
@@ -139,7 +140,7 @@ export async function verifyCommunity081Candidate({ candidateDir, expectedCommit
     provenanceText = await readFile(provenancePath, 'utf8');
     provenance = JSON.parse(provenanceText);
   } catch {
-    return { ok: false, findings: [finding('PROVENANCE_MISSING_OR_INVALID', 'PROVENANCE.json')], files: [], contentFingerprint: null };
+    return { ok: false, findings: [...findings, finding('PROVENANCE_MISSING_OR_INVALID', 'PROVENANCE.json')], files: [], contentFingerprint: null };
   }
 
   const payloadResult = await readPayload(root);

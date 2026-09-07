@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
@@ -130,6 +130,20 @@ test('rejects a candidate symlink without following its target or throwing', asy
     assert.equal(result.ok, false);
     assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=NON_REGULAR_ENTRY path=README.md'));
     for (const finding of result.findings) assert.match(String(finding), /^CANDIDATE_PROVENANCE_FAILED category=[A-Z_]+ path=[^ ]+$/);
+  } finally {
+    await rm(state.root, { recursive: true, force: true });
+  }
+});
+
+test('rejects a candidate basename containing whitespace', async () => {
+  const state = await exportFixture();
+  const invalidDir = join(state.root, 'candidate with space');
+  try {
+    await rename(state.candidateDir, invalidDir);
+    await rename(`${state.candidateDir}.sha256`, `${invalidDir}.sha256`);
+    const result = await verifyCommunity081Candidate({ candidateDir: invalidDir, expectedCommit: state.commit, expectedFingerprint: state.exported.contentFingerprint });
+    assert.equal(result.ok, false);
+    assert.ok(result.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=CANDIDATE_BASENAME_INVALID path=candidate'));
   } finally {
     await rm(state.root, { recursive: true, force: true });
   }

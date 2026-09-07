@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { access, lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { access, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyCommunity081Candidate } from './verify-community-0.8.1.mjs';
 
@@ -171,16 +171,6 @@ function sameFileIdentity(left, right) {
   return Boolean(left && right && left.dev === right.dev && left.ino === right.ino);
 }
 
-async function removeOwned(path, identity, options = {}) {
-  if (!identity) return;
-  try {
-    const current = await lstat(path);
-    if (sameFileIdentity(current, identity)) await rm(path, options);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-}
-
 async function reserveCandidateDirectory(candidateDir) {
   try {
     await mkdir(candidateDir);
@@ -195,27 +185,77 @@ async function reserveCandidateDirectory(candidateDir) {
   return { candidateDir, directoryIdentity, markerPath, markerIdentity, token };
 }
 
-async function markerIsOwned(reservation) {
+async function markerTokenIsOwned(reservation) {
   try {
-    const directoryIdentity = await lstat(reservation.candidateDir);
     const markerIdentity = await lstat(reservation.markerPath);
-    if (!sameFileIdentity(directoryIdentity, reservation.directoryIdentity) || !sameFileIdentity(markerIdentity, reservation.markerIdentity) || !markerIdentity.isFile()) return false;
+    if (!sameFileIdentity(markerIdentity, reservation.markerIdentity) || !markerIdentity.isFile()) return false;
     return (await readFile(reservation.markerPath, 'utf8')) === `${reservation.token}\n`;
   } catch {
     return false;
   }
 }
 
-async function removeOwnedMarker(reservation) {
-  if (!await markerIsOwned(reservation)) return false;
-  await rm(reservation.markerPath, { force: true });
-  return true;
+async function markerIsOwned(reservation) {
+  try {
+    const directoryIdentity = await lstat(reservation.candidateDir);
+    return sameFileIdentity(directoryIdentity, reservation.directoryIdentity) && await markerTokenIsOwned(reservation);
+  } catch {
+    return false;
+  }
 }
 
-async function removeOwnedReservation(reservation) {
-  const owned = await markerIsOwned(reservation);
-  if (owned) await rm(reservation.candidateDir, { recursive: true, force: true });
-  await removeOwned(reservation.markerPath, reservation.markerIdentity, { force: true });
+function quarantineName(path) {
+  return `${path}.quarantine-${randomBytes(16).toString('hex')}`;
+}
+
+async function quarantineOwnedMarker(reservation) {
+  const isolated = quarantineName(reservation.markerPath);
+  try {
+    await rename(reservation.markerPath, isolated);
+    const isolatedIdentity = await lstat(isolated);
+    if (!sameFileIdentity(isolatedIdentity, reservation.markerIdentity) || !isolatedIdentity.isFile() || (await readFile(isolated, 'utf8')) !== `${reservation.token}\n`) return false;
+    await rm(isolated, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function removeOwnedMarker(reservation) {
+  return quarantineOwnedMarker(reservation);
+}
+
+async function quarantineOwnedReservation(reservation, beforeCleanup) {
+  if (!await markerIsOwned(reservation)) return false;
+  if (beforeCleanup) await beforeCleanup({ candidateDir: reservation.candidateDir, reservation });
+
+  const isolated = quarantineName(reservation.candidateDir);
+  try {
+    await rename(reservation.candidateDir, isolated);
+    const isolatedIdentity = await lstat(isolated);
+    if (!sameFileIdentity(isolatedIdentity, reservation.directoryIdentity) || !isolatedIdentity.isDirectory() || !await markerTokenIsOwned(reservation)) return false;
+    await rm(isolated, { recursive: true, force: true });
+    await quarantineOwnedMarker(reservation);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function quarantineOwnedFile(path, identity) {
+  if (!identity) return false;
+  const isolated = quarantineName(path);
+  try {
+    const current = await lstat(path);
+    if (!sameFileIdentity(current, identity) || !current.isFile()) return false;
+    await rename(path, isolated);
+    const isolatedIdentity = await lstat(isolated);
+    if (!sameFileIdentity(isolatedIdentity, identity) || !isolatedIdentity.isFile()) return false;
+    await rm(isolated, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function runBundle(candidateDir) {
@@ -247,9 +287,10 @@ function ensureRequiredFiles(files) {
   if (missing.length) throw new Error(`candidate required files missing: ${missing.join(', ')}`);
 }
 
-export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE, outDir = DEFAULT_OUT, gitImpl = defaultGit, now = () => new Date().toISOString(), verifyImpl = verifyCommunity081Candidate }) {
+export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE, outDir = DEFAULT_OUT, gitImpl = defaultGit, now = () => new Date().toISOString(), verifyImpl = verifyCommunity081Candidate, beforeCleanup = null }) {
   const source = resolve(sourceRoot);
   const candidateDir = resolve(outDir);
+  if (/\s/.test(basename(candidateDir))) throw new Error('candidate output basename must not contain whitespace');
 
   const sourceCommit = await Promise.resolve(gitImpl.revParse(source));
   if (!/^[0-9a-f]{40}$/i.test(String(sourceCommit || ''))) throw new Error('clean source commit required: git rev-parse HEAD must return the full 40-character commit');
@@ -314,8 +355,8 @@ export async function createCommunity081Candidate({ sourceRoot = DEFAULT_SOURCE,
     if (!await removeOwnedMarker(reservation)) throw new Error('candidate ownership marker changed before completion');
     return { sourceCommit, files: payload.files, contentFingerprint: payload.contentFingerprint, candidateDir };
   } catch (error) {
-    if (sidecarCreated) await removeOwned(sidecar, sidecarIdentity, { force: true });
-    if (reservation) await removeOwnedReservation(reservation);
+    if (reservation) await quarantineOwnedReservation(reservation, beforeCleanup);
+    if (sidecarCreated) await quarantineOwnedFile(sidecar, sidecarIdentity);
     throw error;
   }
 }
