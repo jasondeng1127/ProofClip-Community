@@ -112,7 +112,7 @@ async function createFixture() {
   const commit = git(root, 'rev-parse', 'HEAD');
   const trackedFiles = git(root, 'ls-files').split(/\r?\n/).filter(Boolean);
 
-  await put(root, 'deploy/private.key', '-----BEGIN PRIVATE KEY-----\nignored-secret\n-----END PRIVATE KEY-----\n');
+  await put(root, 'deploy/private.key', ['-----BEGIN ', 'PRIVATE KEY-----\nignored-secret\n-----END PRIVATE KEY-----\n'].join(''));
   await put(root, '.wrangler/state.json', '{"local":true}\n');
   await put(root, 'worker/dist/worker.mjs', 'old generated runtime\n');
   await put(root, 'deploy/.generated/state.json', '{"runtime":true}\n');

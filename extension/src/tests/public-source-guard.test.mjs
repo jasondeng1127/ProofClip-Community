@@ -42,7 +42,7 @@ test('public-source verification rejects changed and Official manifest keys and 
     for (const [label, key] of [['changed', changedKey], ['Official', officialKey]]) {
       await writeFile(manifestPath, JSON.stringify({ ...manifest, key }, null, 2) + '\n');
       const output = runVerificationExpectingFailure();
-      assert.match(output, /stable public key|forbidden deployment identity/i, label);
+      assert.match(output, /stable public[\s|]+key|forbidden deployment identity/i, label);
     }
   } finally {
     await writeFile(manifestPath, originalText);

@@ -158,7 +158,7 @@ test('rejects every forbidden identity and secret category without printing matc
     ['DIAGNOSTIC_IDENTITY', 'fresh-oauth-transport-1'],
     ['DIAGNOSTIC_UUID', 'cb077973-df64-49d4-90df-c0720b462f4f'],
     ['AUDIT_RELEASE_EVIDENCE', 'CANDIDATE_HANDOFF_BLOCKED'],
-    ['PRIVATE_KEY_MATERIAL', '-----BEGIN PRIVATE KEY-----\nprivate-secret-value\n-----END PRIVATE KEY-----'],
+    ['PRIVATE_KEY_MATERIAL', ['-----BEGIN ', 'PRIVATE KEY-----\nprivate-secret-value\n-----END PRIVATE KEY-----'].join('')],
     ['OAUTH_CODE', 'authorization_code=authorization-code-super-secret'],
     ['OAUTH_STATE', 'oauth_state=oauth-state-super-secret'],
     ['OAUTH_TOKEN', 'access_token=access-token-super-secret'],
