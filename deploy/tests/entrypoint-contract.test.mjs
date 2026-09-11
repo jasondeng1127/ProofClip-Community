@@ -252,7 +252,7 @@ test('POSIX wrapper rejects a positional argument before node, npm, install, or 
 });
 
 test('beginner guide contains the exact three-value input block', () => {
-  const guide = readRequired('docs/community-0.8.1-deployment.md');
+  const guide = readRequired('docs/community-0.8.1-deployment.md').replaceAll('\r\n', '\n');
   const inputBlock = [
     'copy deploy/deploy.env.example deploy/deploy.env',
     'fill CF_API_TOKEN, NOTION_CLIENT_ID, NOTION_CLIENT_SECRET',
@@ -279,6 +279,8 @@ test('root README identifies the Community 0.8.1 deployment path', () => {
   const readme = readRequired('README.md');
 
   assert.match(readme, /Community 0\.8\.1/);
+  assert.match(readme, /Latest Community version — v0\.8\.1/);
+  assert.match(readme, /Three values\. One wrapper\. Clear handoff\./);
   assert.match(readme, /docs\/community-0\.8\.1-deployment\.md/);
   assert.match(readme, /Richer full-page capture/);
   assert.match(readme, /Stronger privacy safeguards/);

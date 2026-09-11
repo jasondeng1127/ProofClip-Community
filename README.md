@@ -9,18 +9,24 @@ This leads to a simple product philosophy: capture with as little friction as po
 
 The tool should stay out of the way when it is not needed and be reliable when it is.
 
-## Release status — v0.8.0 latest released baseline
+## Latest Community version — v0.8.1
 
-**v0.8.0 remains the latest released ProofClip Community baseline.**
+**Three values. One wrapper. Clear handoff.** ProofClip Community 0.8.1 is the
+current self-hosted Community version in this repository. It makes deployment
+easier to operate without changing who owns the infrastructure: the deployer
+supplies a Cloudflare API token plus Notion client ID and secret, then runs one
+wrapper from the candidate root.
 
-The Community 0.8.1 deployment path is a pre-release/rehearsal candidate
-pending candidate export and the human release gate. It is not yet released.
+The wrapper prepares its pinned local runtime, derives the deployment identity,
+and prints the two values a deployer needs for the final manual handoff: the
+Notion callback URL and the exact generated extension directory to load. It
+does not accept account IDs, Worker names, D1 IDs, callback URLs, or secrets as
+command arguments, and it does not print the local environment file.
 
-Community 0.8.1 adds a one-command, deployer-owned deployment path while
-keeping the existing 0.8.0 runtime baseline local-first and under the
-deployer's control.
+Start with the [v0.8.1 deployment guide](docs/community-0.8.1-deployment.md).
+GitHub release assets and tags remain a separate release-packaging step.
 
-### Runtime capabilities carried from v0.8.0
+### What v0.8.1 carries forward
 
 - **Richer full-page capture** — improved structured extraction preserves more of the original reading context, including headings, paragraphs, lists, links, and supported images in their natural order.
 - **Better long-page handling** — strengthened long-page extraction and fallback behavior for more reliable capture of large documents and research material.
@@ -29,7 +35,7 @@ deployer's control.
 - **More resilient capture and delivery** — strengthened local processing, delivery recovery, resend behavior, and duplicate-delivery protection across the capture-to-Notion path.
 - **Stronger privacy safeguards** — the self-hosted Worker is designed not to retain capture bodies or screenshots after the requested delivery.
 
-**[View v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Download v0.8.0](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)** · **[Community 0.8.1 one-command deployment guide](docs/community-0.8.1-deployment.md)**
+**[v0.8.1 deployment guide](docs/community-0.8.1-deployment.md)** · **[Deployment command reference](deploy/README.md)** · **[v0.8.0 release notes](https://github.com/jasondeng1127/ProofClip-Community/releases/tag/v0.8.0)**
 
 ## Choose the right path before you start
 
@@ -72,7 +78,7 @@ The Commercial edition is not currently available. When released, its intended p
 
 ## First successful Community capture
 
-After a human-approved 0.8.1 candidate deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
+After a v0.8.1 deployment is complete, use this short path to confirm the research workflow rather than treating a deployed Worker as proof of a usable setup:
 
 1. [Run the Community 0.8.1 deployment path](docs/community-0.8.1-deployment.md), then load the generated extension directory.
 2. Connect the deployer's Notion integration, choose a Data Source, and map its required **Title** and **URL** properties.
@@ -83,6 +89,6 @@ The full, source-only loading path is in the [deployment guide](deploy/README.md
 
 ## Deploy your own Community instance
 
-ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. The 0.8.1 pre-release deployment path derives the browser identity and prints the generated extension directory and HTTPS callback details needed for the two manual handoff actions. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
+ProofClip Community uses a deployer-owned Cloudflare Worker/D1 service and Notion OAuth integration. The 0.8.1 deployment path derives the browser identity and prints the generated extension directory and HTTPS callback details needed for the two manual handoff actions. There is no central ProofClip-hosted dependency: captures stay in the browser until the user explicitly sends them, and the deployer's Worker writes the requested record to Notion without retaining capture bodies or screenshots.
 
 Read [the one-command deployment guide](docs/community-0.8.1-deployment.md), [the deployment reference](deploy/README.md), [architecture](docs/architecture.md), [security model](docs/security.md), and [Notion OAuth guide](docs/self-hosted-notion-oauth.md) before operating a deployment. [TRADEMARKS.md](TRADEMARKS.md) states the separate brand-use restriction.

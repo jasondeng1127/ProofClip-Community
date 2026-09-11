@@ -5,6 +5,18 @@ deployment. It uses the existing deployment core and its pinned Wrangler
 package. No live deployment is performed by reading this document; run the
 wrapper only after the local candidate and the three input values are ready.
 
+## v0.8.1 at a glance
+
+The deployer provides only three values in a local environment file:
+`CF_API_TOKEN`, `NOTION_CLIENT_ID`, and `NOTION_CLIENT_SECRET`. From the
+candidate root, one wrapper command prepares the pinned local runtime and runs
+the deployment core. The command prints a redacted callback URL and the exact
+generated extension directory for the two deliberate manual handoffs.
+
+You do not supply pre-derived infrastructure or browser identity values as command
+arguments. The deployment core derives and validates those values, and it keeps the
+local environment file out of command output.
+
 ## Before you start
 
 Have Node.js 20 or newer, npm, PowerShell 7 on Windows or a POSIX shell, a
