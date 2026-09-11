@@ -86,17 +86,17 @@ const textRules = [
   { pattern: /proofclip-community-08-fresh-rehearsal-20260816/i, category: 'FRESH_REHEARSAL_IDENTITY' },
   { pattern: /fresh-oauth-transport-1/i, category: 'DIAGNOSTIC_IDENTITY' },
   { pattern: /cb077973-df64-49d4-90df-c0720b462f4f/i, category: 'DIAGNOSTIC_UUID' },
-  { pattern: /(?:projects\/service\/P-proofclip-api|lemonsqueezy|support-issued\s+key|manual-subscription|\/v1\/(?:license|usage\/report|webhooks\/lemon))/i, category: 'COMMERCIAL_IDENTITY' },
-  { pattern: /(?:FRESH_DEPLOY_PASS_FROZEN|CANDIDATE_HANDOFF_BLOCKED|RELEASE_IDENTITY|release-record)/i, category: 'AUDIT_RELEASE_EVIDENCE' },
+  { pattern: /(?:lemonsqueezy|support-issued\s+key|manual-subscription|\/v1\/(?:license|usage\/report|webhooks\/lemon))/i, category: 'COMMERCIAL_IDENTITY' },
+  { pattern: /(?:FRESH_DEPLOY_PASS_FROZEN|CANDIDATE_HANDOFF_BLOCKED|RELEASE_IDENTITY)/i, category: 'AUDIT_RELEASE_EVIDENCE' },
   { pattern: /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/i, category: 'PRIVATE_KEY_MATERIAL' },
-  { pattern: /(?:CF_API_TOKEN|CLOUDFLARE_API_TOKEN)\s*[:=][ \t]*[^\s"']+/i, category: 'CLOUDFLARE_SECRET' },
+  { pattern: /(?:CF_API_TOKEN|CLOUDFLARE_API_TOKEN)\s*[:=][ \t]*(?!(?:env|process\.env)\.)[^\s"']+/i, category: 'CLOUDFLARE_SECRET' },
   { pattern: /NOTION_CLIENT_SECRET\s*[:=][ \t]*[^\s"']+/i, category: 'NOTION_SECRET' },
   { pattern: /TOKEN_VAULT_KEY\s*[:=][ \t]*[^\s"']+/i, category: 'VAULT_SECRET' },
   { pattern: /authorization[_ -]?code\s*[:=][ \t]*["']?(?!temporary[-_]code\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_CODE' },
   { pattern: /oauth[_ -]?state\s*[:=][ \t]*["']?(?!oauth[-_]state[-_]test\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_STATE' },
-  { pattern: /(?:access[_ -]?token|refresh[_ -]?token)\s*[:=][ \t]*["']?(?!(?:ntn|nrt)_(?:test|realistic_test))[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_TOKEN' },
+  { pattern: /(?:access[_ -]?token|refresh[_ -]?token)\s*[:=][ \t]*["']?(?!(?:ntn|nrt)_(?:test|realistic_test))(?!(?:[A-Za-z_$][\w$]*\.)?(?:access|refresh)_token\b)[A-Za-z0-9._~+\/-]{12,}/i, category: 'OAUTH_TOKEN' },
   { pattern: /\bBearer\s+[A-Za-z0-9._~+\/-]{16,}/i, category: 'AUTHORIZATION_TOKEN' },
-  { pattern: /\b(?:secret_|ntn_|sk-)\w{10,}/i, category: 'SERVICE_SECRET' },
+  { pattern: /\b(?:secret_|ntn_|sk-)[a-z0-9][A-Za-z0-9_]{9,}/, category: 'SERVICE_SECRET' },
 ];
 
 async function readPayload(candidateDir) {

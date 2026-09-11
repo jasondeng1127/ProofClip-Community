@@ -23,7 +23,7 @@ function treeEntries(repo, commit) {
   });
 }
 
-async function fixture() {
+async function fixture(overrides = {}) {
   const root = await mkdtemp(join(tmpdir(), 'proofclip-community-081-provenance-'));
   git(root, 'init', '-q');
   git(root, 'config', 'user.email', 'fixture@example.invalid');
@@ -37,7 +37,7 @@ async function fixture() {
   await put('extension/src/manifest.json', JSON.stringify({ manifest_version: 3, version: '0.8.1', key: STABLE_PUBLIC_KEY }) + '\n');
   await put('extension/src/community-config.mjs', 'export const COMMUNITY_API_ORIGIN = "https://replace-me.invalid";\n');
   await put('extension/src/background.js', 'export const community = true;\n');
-  await put('worker/src/worker.mjs', 'export const worker = true;\n');
+  await put('worker/src/worker.mjs', overrides.workerSource || 'export const worker = true;\n');
   await put('worker/src/index.mjs', 'export const index = true;\n');
   await put('worker/src/schema.sql', 'CREATE TABLE oauth_state (state TEXT PRIMARY KEY);\n');
   await put('worker/migrations/20260813_privacy_nonretention.sql', '-- privacy migration\n');
@@ -47,7 +47,8 @@ async function fixture() {
     "await writeFile('worker/dist/worker.mjs', await readFile('worker/src/worker.mjs', 'utf8'), 'utf8');",
     ''
   ].join('\n'));
-  await put('deploy/deploy-core.mjs', 'export const productionDeployCore = true;\n');
+  await put('deploy/deploy-core.mjs', overrides.deployCore || 'export const productionDeployCore = true;\n');
+  await put('deploy/lib/wrangler.mjs', overrides.wranglerLibrary || 'export const productionWrangler = true;\n');
   await put('deploy/deploy.env.example', 'CF_API_TOKEN=\nNOTION_CLIENT_ID=\nNOTION_CLIENT_SECRET=\n');
   await put('deploy/deploy.ps1', 'node deploy/deploy-core.mjs --env deploy/deploy.env\n');
   await put('deploy/deploy.sh', '#!/bin/sh\nnode deploy/deploy-core.mjs --env deploy/deploy.env\n');
@@ -60,7 +61,7 @@ async function fixture() {
   await put('SECURITY.md', 'security\n');
   await put('CONTRIBUTING.md', 'contributing\n');
   await put('TRADEMARKS.md', 'trademarks\n');
-  await put('MIGRATION.md', 'migration\n');
+  await put('MIGRATION.md', overrides.migration || 'migration\n');
   git(root, 'add', '.');
   git(root, 'commit', '-qm', 'fixture: provenance source');
   return { root, commit: git(root, 'rev-parse', 'HEAD'), trackedFiles: git(root, 'ls-files').split(/\r?\n/).filter(Boolean) };
@@ -75,8 +76,8 @@ function gitImpl(commit, trackedFiles) {
   };
 }
 
-async function exportFixture() {
-  const state = await fixture();
+async function exportFixture(overrides = {}) {
+  const state = await fixture(overrides);
   const candidateDir = join(state.root, 'candidate');
   const exported = await createCommunity081Candidate({ sourceRoot: state.root, outDir: candidateDir, gitImpl: gitImpl(state.commit, state.trackedFiles) });
   return { ...state, candidateDir, exported };
@@ -153,7 +154,7 @@ test('rejects every forbidden identity and secret category without printing matc
   const cases = [
     ['RC_IDENTITY', 'proofclip-community-rc1-20260814'],
     ['FRESH_REHEARSAL_IDENTITY', 'proofclip-community-08-fresh-rehearsal-20260816'],
-    ['COMMERCIAL_IDENTITY', 'projects/service/P-proofclip-api'],
+    ['COMMERCIAL_IDENTITY', 'lemonsqueezy'],
     ['DIAGNOSTIC_IDENTITY', 'fresh-oauth-transport-1'],
     ['DIAGNOSTIC_UUID', 'cb077973-df64-49d4-90df-c0720b462f4f'],
     ['AUDIT_RELEASE_EVIDENCE', 'CANDIDATE_HANDOFF_BLOCKED'],
@@ -164,6 +165,7 @@ test('rejects every forbidden identity and secret category without printing matc
     ['CLOUDFLARE_SECRET', 'CF_API_TOKEN=cf-live-secret-value'],
     ['NOTION_SECRET', 'NOTION_CLIENT_SECRET=notion-live-secret-value'],
     ['VAULT_SECRET', 'TOKEN_VAULT_KEY=vault-live-secret-value'],
+    ['SERVICE_SECRET', 'secret_actualservicevalue'],
   ];
   for (const [category, value] of cases) {
     const result = await verifyMutation(async ({ candidateDir }) => {
@@ -179,6 +181,34 @@ test('rejects every forbidden identity and secret category without printing matc
     await writeFile(join(candidateDir, '.wrangler', 'state.json'), '{"runtime":true}\n');
   });
   assert.ok(runtime.findings.some((finding) => finding === 'CANDIDATE_PROVENANCE_FAILED category=WRANGLER_STATE path=.wrangler/state.json'));
+});
+
+test('accepts source identifiers and documented legacy paths without treating them as leaked credentials or release evidence', async () => {
+  const state = await exportFixture({
+    deployCore: [
+      "const blockedSegments = new Set(['release-records']);",
+      'const runner = { env: { CLOUDFLARE_API_TOKEN: env.cfApiToken } };',
+      'export { blockedSegments, runner };',
+      ''
+    ].join('\n'),
+    wranglerLibrary: [
+      'const SECRET_ENV_PATTERN = /(token|secret|vault|key|auth|password)/i;',
+      'export const matchesSecretName = (name) => SECRET_ENV_PATTERN.test(name);',
+      ''
+    ].join('\n'),
+    migration: '- `projects/service/P-proofclip-api/src/`\n',
+    workerSource: [
+      'const response = { access_token: null, refresh_token: null };',
+      'export const tokens = { access_token: response.access_token, refresh_token: response.refresh_token || null };',
+      ''
+    ].join('\n')
+  });
+  try {
+    const result = await verifyCommunity081Candidate({ candidateDir: state.candidateDir, expectedCommit: state.commit, expectedFingerprint: state.exported.contentFingerprint });
+    assert.equal(result.ok, true, JSON.stringify(result.findings));
+  } finally {
+    await rm(state.root, { recursive: true, force: true });
+  }
 });
 
 test('fails closed independently for file, content, bundle, provenance, sidecar, and path mismatches', async (t) => {
